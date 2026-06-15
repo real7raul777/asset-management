@@ -337,14 +337,16 @@ tr:hover td{background:rgba(255,255,255,.02)}
     <div class="card-body">
       <div class="form-grid">
         <div class="fg"><label>日付</label><input type="date" id="tin-date"></div>
-        <div class="fg"><label>資産合計</label><input type="number" id="tin-total" placeholder="18926830"></div>
-        <div class="fg"><label>投資信託 評価額</label><input type="number" id="tin-trust" placeholder="8149702"></div>
-        <div class="fg"><label>評価損益</label><input type="number" id="tin-gain" placeholder="1209701"></div>
+        <div class="fg"><label>投資信託 評価額</label><input type="number" id="tin-trust" placeholder="10633129"></div>
+        <div class="fg"><label>評価損益</label><input type="number" id="tin-gain" placeholder="1863606"></div>
         <div class="fg"><label>累積損益</label><input type="number" id="tin-gainCum" placeholder="5472823"></div>
         <div class="fg"><label>預かり金 残高</label><input type="number" id="tin-deposit" placeholder="11177128"></div>
         <div class="fg"><label>実家分</label><input type="number" id="tin-family" placeholder="400000"></div>
         <div class="fg"><label>積立（預かり分）J列</label><input type="number" id="tin-accumDep" placeholder="300000"></div>
         <div class="fg"><label>積立（給料）K列</label><input type="number" id="tin-accumSal" placeholder="40000"></div>
+        <div class="fg" style="display:flex;align-items:center;padding-top:20px">
+          <span style="font-size:11px;color:var(--muted)">資産合計 = 投資信託 ＋ 預かり金 − 実家分（自動計算）</span>
+        </div>
       </div>
       <div class="btn-row">
         <button class="btn-primary" onclick="addTrustRow()">追加</button>
@@ -553,35 +555,35 @@ const INITIAL_TRUST = [
   { date:"2023-11-22", total:8808350, trust:2482776, gain:170348, gainPct:0.0737, gainCum:2337946, gainCumPct:0.3613, deposit:9125574, family:2800000, accumDep:null, accumSal:null },
   { date:"2023-12-01", total:8669519, trust:2503945, gain:162278, gainPct:0.0693, gainCum:2329876, gainCumPct:0.3675, deposit:8965574, family:2800000, accumDep:160000, accumSal:80000 },
   { date:"2024-01-01", total:8985962, trust:3021703, gain:200037, gainPct:0.0709, gainCum:2367635, gainCumPct:0.3577, deposit:8764259, family:2800000, accumDep:160000, accumSal:80000 },
-  { date:"2024-02-01", total:9110198, trust:3355939, gain:294273, gainPct:0.0977, gainCum:2461870, gainCumPct:0.3703, deposit:8604259, family:2800000, accumDep:160000, accumSal:30000 },
+  { date:"2024-02-01", total:9160198, trust:3355939, gain:294273, gainPct:0.0977, gainCum:2461870, gainCumPct:0.3703, deposit:8604259, family:2800000, accumDep:160000, accumSal:30000 },
   { date:"2024-03-01", total:9351590, trust:3707331, gain:435664, gainPct:0.1332, gainCum:2603262, gainCumPct:0.3858, deposit:8444259, family:2800000, accumDep:160000, accumSal:30000 },
-  { date:"2024-04-01", total:9524291, trust:4196567, gain:584898, gainPct:0.1671, gainCum:2745964, gainCumPct:0.4051, deposit:8284259, family:2800000, accumDep:160000, accumSal:30000 },
-  { date:"2024-05-01", total:9623528, trust:4510279, gain:658610, gainPct:0.1773, gainCum:2815202, gainCumPct:0.4135, deposit:8124259, family:2800000, accumDep:160000, accumSal:30000 },
-  { date:"2024-06-01", total:9688001, trust:4786972, gain:695304, gainPct:0.1775, gainCum:2849674, gainCumPct:0.4167, deposit:7064259, family:1900000, accumDep:160000, accumSal:30000 },
-  { date:"2024-07-01", total:9876829, trust:3223915, gain:495788, gainPct:0.1913, gainCum:3026646, gainCumPct:0.4418, deposit:8884303, family:1900000, accumDep:160000, accumSal:30000 },
-  { date:"2024-08-01", total:9805885, trust:2402788, gain:130091, gainPct:0.0654, gainCum:2873556, gainCumPct:0.4145, deposit:8857394, family:1100000, accumDep:160000, accumSal:30000 },
-  { date:"2024-09-01", total:9121798, trust:2676936, gain:114246, gainPct:0.0529, gainCum:2859468, gainCumPct:0.4566, deposit:7997394, family:1100000, accumDep:160000, accumSal:30000 },
-  { date:"2024-10-01", total:9243077, trust:3076927, gain:224239, gainPct:0.0882, gainCum:2950747, gainCumPct:0.4689, deposit:7737394, family:1000000, accumDep:160000, accumSal:30000 },
-  { date:"2024-11-01", total:9349583, trust:3366941, gain:324254, gainPct:0.1147, gainCum:3033755, gainCumPct:0.4803, deposit:7570892, family:1000000, accumDep:160000, accumSal:30000 },
-  { date:"2024-12-01", total:9461298, trust:3850011, gain:417299, gainPct:0.1360, gainCum:3112550, gainCumPct:0.4903, deposit:7403812, family:990000, accumDep:160000, accumSal:30000 },
-  { date:"2025-01-01", total:9570358, trust:3243123, gain:340432, gainPct:0.1291, gainCum:3224401, gainCumPct:0.5081, deposit:8242620, family:990000, accumDep:160000, accumSal:30000 },
-  { date:"2025-02-01", total:9578081, trust:3501898, gain:309188, gainPct:0.1083, gainCum:3202124, gainCumPct:0.5022, deposit:8082620, family:990000, accumDep:160000, accumSal:30000 },
-  { date:"2025-03-01", total:9608259, trust:4540696, gain:57993, gainPct:0.0125, gainCum:3002302, gainCumPct:0.4545, deposit:6922620, family:790000, accumDep:160000, accumSal:30000 },
-  { date:"2025-04-01", total:9134824, trust:4411761, gain:-360934, gainPct:-0.0707, gainCum:2703067, gainCumPct:0.4203, deposit:6558420, family:790000, accumDep:160000, accumSal:30000 },
-  { date:"2025-05-01", total:9507515, trust:5154149, gain:91428, gainPct:0.0227, gainCum:3045758, gainCumPct:0.4714, deposit:6398420, family:790000, accumDep:160000, accumSal:30000 },
-  { date:"2025-06-01", total:9633841, trust:5604103, gain:251408, gainPct:0.0520, gainCum:3167580, gainCumPct:0.4899, deposit:5822924, family:400000, accumDep:160000, accumSal:30000 },
-  { date:"2025-07-01", total:9828127, trust:6049325, gain:506629, gainPct:0.0956, gainCum:3360341, gainCumPct:0.5196, deposit:5634448, family:400000, accumDep:160000, accumSal:30000 },
-  { date:"2025-08-01", total:9707047, trust:6356517, gain:713794, gainPct:0.1366, gainCum:3518337, gainCumPct:0.5685, deposit:5455373, family:400000, accumDep:160000, accumSal:40000 },
-  { date:"2025-09-01", total:10192020, trust:7052511, gain:909789, gainPct:0.1533, gainCum:3663311, gainCumPct:0.5611, deposit:5295373, family:400000, accumDep:160000, accumSal:40000 },
-  { date:"2025-10-01", total:10450424, trust:7643753, gain:1201016, gainPct:0.1925, gainCum:3881714, gainCumPct:0.5909, deposit:5135373, family:400000, accumDep:160000, accumSal:40000 },
+  { date:"2024-04-01", total:9680826, trust:4196567, gain:584898, gainPct:0.1671, gainCum:2745964, gainCumPct:0.4051, deposit:8284259, family:2800000, accumDep:160000, accumSal:30000 },
+  { date:"2024-05-01", total:9834538, trust:4510279, gain:658610, gainPct:0.1773, gainCum:2815202, gainCumPct:0.4135, deposit:8124259, family:2800000, accumDep:160000, accumSal:30000 },
+  { date:"2024-06-01", total:9951231, trust:4786972, gain:695304, gainPct:0.1775, gainCum:2849674, gainCumPct:0.4167, deposit:7064259, family:1900000, accumDep:160000, accumSal:30000 },
+  { date:"2024-07-01", total:10208218, trust:3223915, gain:495788, gainPct:0.1913, gainCum:3026646, gainCumPct:0.4418, deposit:8884303, family:1900000, accumDep:160000, accumSal:30000 },
+  { date:"2024-08-01", total:10160182, trust:2402788, gain:130091, gainPct:0.0654, gainCum:2873556, gainCumPct:0.4145, deposit:8857394, family:1100000, accumDep:160000, accumSal:30000 },
+  { date:"2024-09-01", total:9574330, trust:2676936, gain:114246, gainPct:0.0529, gainCum:2859468, gainCumPct:0.4566, deposit:7997394, family:1100000, accumDep:160000, accumSal:30000 },
+  { date:"2024-10-01", total:9814321, trust:3076927, gain:224239, gainPct:0.0882, gainCum:2950747, gainCumPct:0.4689, deposit:7737394, family:1000000, accumDep:160000, accumSal:30000 },
+  { date:"2024-11-01", total:9938524, trust:3366941, gain:324254, gainPct:0.1147, gainCum:3033755, gainCumPct:0.4803, deposit:7570892, family:1000000, accumDep:160000, accumSal:30000 },
+  { date:"2024-12-01", total:10263823, trust:3850011, gain:417299, gainPct:0.1360, gainCum:3112550, gainCumPct:0.4903, deposit:7403812, family:990000, accumDep:160000, accumSal:30000 },
+  { date:"2025-01-01", total:10495743, trust:3243123, gain:340432, gainPct:0.1291, gainCum:3224401, gainCumPct:0.5081, deposit:8242620, family:990000, accumDep:160000, accumSal:30000 },
+  { date:"2025-02-01", total:10594518, trust:3501898, gain:309188, gainPct:0.1083, gainCum:3202124, gainCumPct:0.5022, deposit:8082620, family:990000, accumDep:160000, accumSal:30000 },
+  { date:"2025-03-01", total:10673316, trust:4540696, gain:57993, gainPct:0.0125, gainCum:3002302, gainCumPct:0.4545, deposit:6922620, family:790000, accumDep:160000, accumSal:30000 },
+  { date:"2025-04-01", total:10180181, trust:4411761, gain:-360934, gainPct:-0.0707, gainCum:2703067, gainCumPct:0.4203, deposit:6558420, family:790000, accumDep:160000, accumSal:30000 },
+  { date:"2025-05-01", total:10762569, trust:5154149, gain:91428, gainPct:0.0227, gainCum:3045758, gainCumPct:0.4714, deposit:6398420, family:790000, accumDep:160000, accumSal:30000 },
+  { date:"2025-06-01", total:11027027, trust:5604103, gain:251408, gainPct:0.0520, gainCum:3167580, gainCumPct:0.4899, deposit:5822924, family:400000, accumDep:160000, accumSal:30000 },
+  { date:"2025-07-01", total:11283773, trust:6049325, gain:506629, gainPct:0.0956, gainCum:3360341, gainCumPct:0.5196, deposit:5634448, family:400000, accumDep:160000, accumSal:30000 },
+  { date:"2025-08-01", total:11411890, trust:6356517, gain:713794, gainPct:0.1366, gainCum:3518337, gainCumPct:0.5685, deposit:5455373, family:400000, accumDep:160000, accumSal:40000 },
+  { date:"2025-09-01", total:11947884, trust:7052511, gain:909789, gainPct:0.1533, gainCum:3663311, gainCumPct:0.5611, deposit:5295373, family:400000, accumDep:160000, accumSal:40000 },
+  { date:"2025-10-01", total:12379126, trust:7643753, gain:1201016, gainPct:0.1925, gainCum:3881714, gainCumPct:0.5909, deposit:5135373, family:400000, accumDep:160000, accumSal:40000 },
   { date:"2025-11-01", total:16565344, trust:8985051, gain:922366, gainPct:0.1144, gainCum:3881714, gainCumPct:0.3060, deposit:7980293, family:400000, accumDep:220000, accumSal:40000 },
-  { date:"2025-12-01", total:17348752, trust:7335833, gain:585793, gainPct:0.0334, gainCum:4426971, gainCumPct:0.3426, deposit:12684903, family:400000, accumDep:300000, accumSal:40000 },
-  { date:"2026-01-01", total:17570211, trust:8142552, gain:852553, gainPct:0.0659, gainCum:4608431, gainCumPct:0.3555, deposit:12384903, family:400000, accumDep:300000, accumSal:40000 },
-  { date:"2026-02-01", total:17166338, trust:8564944, gain:934944, gainPct:0.0719, gainCum:4664557, gainCumPct:0.3731, deposit:11584903, family:400000, accumDep:300000, accumSal:40000 },
-  { date:"2026-03-01", total:17289560, trust:9127552, gain:1057494, gainPct:0.0819, gainCum:4747778, gainCumPct:0.3786, deposit:11284903, family:400000, accumDep:300000, accumSal:40000 },
-  { date:"2026-04-01", total:17070471, trust:9195198, gain:685188, gainPct:0.0360, gainCum:4488689, gainCumPct:0.3568, deposit:10984903, family:400000, accumDep:300000, accumSal:40000 },
-  { date:"2026-05-01", total:17741026, trust:10633380, gain:1583307, gainPct:0.1297, gainCum:5119245, gainCumPct:0.4056, deposit:10684903, family:400000, accumDep:300000, accumSal:40000 },
-  { date:"2026-06-01", total:18926830, trust:10633129, gain:1863606, gainPct:0.1743, gainCum:5472823, gainCumPct:0.4068, deposit:11177128, family:400000, accumDep:300000, accumSal:40000 },
+  { date:"2025-12-01", total:19620736, trust:7335833, gain:585793, gainPct:0.0334, gainCum:4426971, gainCumPct:0.3426, deposit:12684903, family:400000, accumDep:300000, accumSal:40000 },
+  { date:"2026-01-01", total:20127455, trust:8142552, gain:852553, gainPct:0.0659, gainCum:4608431, gainCumPct:0.3555, deposit:12384903, family:400000, accumDep:300000, accumSal:40000 },
+  { date:"2026-02-01", total:19749847, trust:8564944, gain:934944, gainPct:0.0719, gainCum:4664557, gainCumPct:0.3731, deposit:11584903, family:400000, accumDep:300000, accumSal:40000 },
+  { date:"2026-03-01", total:20012455, trust:9127552, gain:1057494, gainPct:0.0819, gainCum:4747778, gainCumPct:0.3786, deposit:11284903, family:400000, accumDep:300000, accumSal:40000 },
+  { date:"2026-04-01", total:19780101, trust:9195198, gain:685188, gainPct:0.0360, gainCum:4488689, gainCumPct:0.3568, deposit:10984903, family:400000, accumDep:300000, accumSal:40000 },
+  { date:"2026-05-01", total:20918283, trust:10633380, gain:1583307, gainPct:0.1297, gainCum:5119245, gainCumPct:0.4056, deposit:10684903, family:400000, accumDep:300000, accumSal:40000 },
+  { date:"2026-06-01", total:21410257, trust:10633129, gain:1863606, gainPct:0.1743, gainCum:5472823, gainCumPct:0.4068, deposit:11177128, family:400000, accumDep:300000, accumSal:40000 },
 ];
 const INITIAL_SAVINGS = [
   { date:"2021-08-10", ribon:1850000, furikae:674516, total:2524516 },
@@ -813,10 +815,11 @@ function setTrustRange(n,el){ trustRangeN=n; tglSet('tTglRange',el); renderTrust
 function setTrustFilter(m){ trustFilterMode=m; renderTrust(); }
 
 async function addTrustRow(){
-  const d=v('tin-date'),tot=+v('tin-total'),tr=nv('tin-trust'),gain=nv('tin-gain'),
+  const d=v('tin-date'),tr=nv('tin-trust'),gain=nv('tin-gain'),
         gainCum=nv('tin-gainCum'),dep=nv('tin-deposit'),fam=nv('tin-family'),
         accumDep=nv('tin-accumDep'),accumSal=nv('tin-accumSal');
-  if(!d||!tot){ alert('日付と資産合計は必須'); return; }
+  if(!d||tr===null||dep===null){ alert('日付・投資信託・預かり金は必須'); return; }
+  const tot = (tr||0) + (dep||0) - (fam||0);
   const gainPct=tr&&gain!=null&&(tr-gain)>0?gain/(tr-gain):null;
   const row={date:d,total:tot,trust:tr,gain,gainPct,gainCum,gainCumPct:null,deposit:dep,family:fam,accumDep,accumSal};
   const id=await window._db.addOne('trustData',row,d);
@@ -829,7 +832,7 @@ async function deleteTrust(id){
   trustData=trustData.filter(r=>r._id!==id);
   renderTrust(); renderSummaryIfActive();
 }
-function clearTrust(){ ['tin-date','tin-total','tin-trust','tin-gain','tin-gainCum','tin-deposit','tin-family','tin-accumDep','tin-accumSal'].forEach(id=>document.getElementById(id).value=''); }
+function clearTrust(){ ['tin-date','tin-trust','tin-gain','tin-gainCum','tin-deposit','tin-family','tin-accumDep','tin-accumSal'].forEach(id=>document.getElementById(id).value=''); }
 
 async function applyDepositEvent(){
   const mo=v('dep-month'),addVal=+v('dep-newval'),memo=v('dep-memo');
