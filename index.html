@@ -1,0 +1,938 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>資産管理ダッシュボード</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<!-- Firebase SDK -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
+    from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  import { getFirestore, doc, getDoc, setDoc, collection, getDocs, addDoc, deleteDoc, updateDoc, writeBatch }
+    from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  // ============================================================
+  // ★ここにFirebaseプロジェクトのconfigを貼り付けてください★
+  // Firebase Console → プロジェクトの設定 → マイアプリ → firebaseConfig
+  // ============================================================
+  const firebaseConfig = {
+    apiKey:            "YOUR_API_KEY",
+    authDomain:        "YOUR_PROJECT.firebaseapp.com",
+    projectId:         "YOUR_PROJECT_ID",
+    storageBucket:     "YOUR_PROJECT.appspot.com",
+    messagingSenderId: "YOUR_SENDER_ID",
+    appId:             "YOUR_APP_ID"
+  };
+
+  const app  = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db   = getFirestore(app);
+
+  // ============================================================
+  // Firestore ヘルパー
+  // ユーザーごとのパス: assetManagement/{uid}/コレクション名
+  // ============================================================
+  function userCol(uid, name) {
+    return collection(db, "assetManagement", uid, name);
+  }
+  function userDoc(uid, name, id) {
+    return doc(db, "assetManagement", uid, name, id);
+  }
+
+  // ---- 読み込み ----
+  async function loadCollection(uid, name) {
+    const snap = await getDocs(userCol(uid, name));
+    return snap.docs.map(d => ({ _id: d.id, ...d.data() }));
+  }
+
+  // ---- 全データ一括保存（初回移行用）----
+  async function saveAll(uid, name, rows, idField) {
+    const batch = writeBatch(db);
+    rows.forEach(row => {
+      const id = String(row[idField] ?? row.date ?? Math.random());
+      const ref = userDoc(uid, name, id);
+      batch.set(ref, row);
+    });
+    await batch.commit();
+  }
+
+  // ---- 1件追加 ----
+  async function addOne(uid, name, data, id) {
+    if (id) {
+      await setDoc(userDoc(uid, name, String(id)), data);
+      return String(id);
+    } else {
+      const ref = await addDoc(userCol(uid, name), data);
+      return ref.id;
+    }
+  }
+
+  // ---- 1件更新 ----
+  async function updateOne(uid, name, id, data) {
+    await updateDoc(userDoc(uid, name, String(id)), data);
+  }
+
+  // ---- 1件削除 ----
+  async function deleteOne(uid, name, id) {
+    await deleteDoc(userDoc(uid, name, String(id)));
+  }
+
+  // ---- 設定ドキュメント（積立スケジュール・利益確定イベント）----
+  async function loadSettings(uid) {
+    const ref = doc(db, "assetManagement", uid, "meta", "settings");
+    const snap = await getDoc(ref);
+    return snap.exists() ? snap.data() : {};
+  }
+  async function saveSettings(uid, data) {
+    const ref = doc(db, "assetManagement", uid, "meta", "settings");
+    await setDoc(ref, data, { merge: true });
+  }
+
+  // ============================================================
+  // 認証状態管理
+  // ============================================================
+  let currentUser = null;
+
+  window._fbLogin = async () => {
+    const provider = new GoogleAuthProvider();
+    await signInWithPopup(auth, provider);
+  };
+  window._fbLogout = async () => {
+    await signOut(auth);
+  };
+
+  // アプリ側に公開するDB操作
+  window._db = {
+    loadAll:      (name)         => loadCollection(currentUser.uid, name),
+    saveAll:      (name, rows, id) => saveAll(currentUser.uid, name, rows, id),
+    addOne:       (name, data, id) => addOne(currentUser.uid, name, data, id),
+    updateOne:    (name, id, data) => updateOne(currentUser.uid, name, id, data),
+    deleteOne:    (name, id)       => deleteOne(currentUser.uid, name, id),
+    loadSettings: ()             => loadSettings(currentUser.uid),
+    saveSettings: (data)         => saveSettings(currentUser.uid, data),
+  };
+
+  onAuthStateChanged(auth, async (user) => {
+    currentUser = user;
+    if (user) {
+      document.getElementById('loginScreen').style.display = 'none';
+      document.getElementById('loadingScreen').style.display = 'flex';
+      document.getElementById('app').style.display = 'block';
+      document.getElementById('userEmail').textContent = user.email;
+      // アプリ初期化を呼ぶ
+      if (typeof window._initApp === 'function') await window._initApp();
+      document.getElementById('loadingScreen').style.display = 'none';
+    } else {
+      document.getElementById('loginScreen').style.display = 'flex';
+      document.getElementById('loadingScreen').style.display = 'none';
+      document.getElementById('app').style.display = 'none';
+    }
+  });
+</script>
+<style>
+:root {
+  --bg:#0B1220; --surface:#141E30; --card:#1A2640; --border:#253554;
+  --gold:#C9963A; --gold-lt:#E8B860; --text:#D8E4F0; --muted:#7A93B0;
+  --green:#3CC98A; --red:#E05B5B; --blue:#4A90D9; --purple:#8B6FCC;
+  --mono:'Courier New',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Hiragino Kaku Gothic Pro','Meiryo',sans-serif;min-height:100vh}
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.logo{display:flex;align-items:center;gap:10px}
+.logo-mark{width:30px;height:30px;background:linear-gradient(135deg,var(--gold),var(--gold-lt));border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:bold;color:#0B1220;font-size:15px}
+.logo-text{font-size:15px;font-weight:600;letter-spacing:.05em}
+nav{background:var(--surface);border-bottom:1px solid var(--border);display:flex;padding:0 24px;overflow-x:auto}
+.nav-btn{padding:11px 18px;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);font-size:13px;cursor:pointer;transition:all .2s;white-space:nowrap}
+.nav-btn:hover{color:var(--text)}
+.nav-btn.active{color:var(--gold);border-bottom-color:var(--gold)}
+main{padding:20px 24px;max-width:1280px;margin:0 auto;width:100%}
+.section{display:none}.section.active{display:block}
+
+/* カード */
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;margin-bottom:18px}
+.card-head{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.card-title{font-size:13px;font-weight:600}
+.card-sub{font-size:11px;color:var(--muted);margin-top:2px}
+.card-body{padding:20px}
+
+/* KPIグリッド */
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(185px,1fr));gap:14px;margin-bottom:18px}
+.kpi{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:18px;position:relative;overflow:hidden}
+.kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--gold),var(--gold-lt))}
+.kpi-label{font-size:10px;color:var(--muted);letter-spacing:.08em;margin-bottom:7px;text-transform:uppercase}
+.kpi-val{font-size:22px;font-weight:700;font-family:var(--mono);letter-spacing:-.02em}
+.kpi-val.pos{color:var(--green)}.kpi-val.neg{color:var(--red)}
+.kpi-sub{font-size:10px;color:var(--muted);margin-top:5px}
+.badge{display:inline-block;padding:2px 7px;border-radius:3px;font-size:10px;font-family:var(--mono);margin-top:4px}
+.badge-pos{background:rgba(60,201,138,.15);color:var(--green)}
+.badge-neg{background:rgba(224,91,91,.15);color:var(--red)}
+.badge-blue{background:rgba(74,144,217,.15);color:var(--blue)}
+
+/* チャート */
+.chart-wrap{position:relative}
+canvas{width:100%!important}
+
+/* テーブル */
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th{background:var(--surface);padding:9px 14px;text-align:left;font-size:10px;color:var(--muted);letter-spacing:.06em;font-weight:500;border-bottom:1px solid var(--border);white-space:nowrap}
+td{padding:10px 14px;font-size:12px;border-bottom:1px solid rgba(37,53,84,.45);white-space:nowrap}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(255,255,255,.02)}
+.tr-future td{color:var(--muted);font-style:italic}
+.num{font-family:var(--mono);text-align:right}
+.pos{color:var(--green)}.neg{color:var(--red)}
+.tag{display:inline-block;padding:1px 6px;border-radius:3px;font-size:10px}
+.tag-now{background:rgba(201,150,58,.2);color:var(--gold)}
+.tag-future{background:rgba(122,147,176,.1);color:var(--muted)}
+
+/* フォーム */
+.form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.fg{display:flex;flex-direction:column;gap:5px}
+.fg label{font-size:10px;color:var(--muted);letter-spacing:.06em}
+.fg input,.fg select,.fg textarea{background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:8px 10px;font-size:12px;outline:none;font-family:inherit;transition:border-color .15s}
+.fg input:focus,.fg select:focus{border-color:var(--gold)}
+.fg select option{background:var(--surface)}
+.btn-row{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap}
+.btn-primary{padding:9px 20px;border:none;border-radius:6px;background:linear-gradient(135deg,var(--gold),var(--gold-lt));color:#0B1220;font-size:12px;font-weight:700;cursor:pointer;transition:opacity .15s}
+.btn-primary:hover{opacity:.85}
+.btn-ghost{padding:9px 16px;border:1px solid var(--border);background:transparent;color:var(--muted);border-radius:6px;font-size:12px;cursor:pointer;transition:all .15s}
+.btn-ghost:hover{border-color:var(--text);color:var(--text)}
+.btn-sm{padding:4px 10px;border:1px solid var(--border);background:transparent;color:var(--muted);border-radius:4px;font-size:10px;cursor:pointer;transition:all .15s}
+.btn-sm:hover{border-color:var(--red);color:var(--red)}
+.btn-sm.ok{border-color:var(--blue);color:var(--blue)}
+.btn-sm.ok:hover{background:rgba(74,144,217,.1)}
+
+/* トグル */
+.toggle-row{display:flex;gap:6px;flex-wrap:wrap}
+.tgl{padding:4px 10px;background:var(--surface);border:1px solid var(--border);color:var(--muted);font-size:11px;border-radius:4px;cursor:pointer;transition:all .15s}
+.tgl:hover,.tgl.on{border-color:var(--gold);color:var(--gold)}
+
+/* アラート */
+.alert{padding:10px 14px;border-radius:7px;font-size:12px;margin-bottom:14px;display:none;border:1px solid var(--green);background:rgba(60,201,138,.12);color:var(--green)}
+.alert.show{display:block}
+
+/* 積立バー */
+.accum-bar{display:flex;align-items:center;gap:6px}
+.bar-seg{height:6px;border-radius:3px}
+
+/* 利益確定入力 */
+.deposit-event{background:rgba(201,150,58,.08);border:1px solid rgba(201,150,58,.3);border-radius:8px;padding:14px;margin-bottom:14px}
+.deposit-event-title{font-size:11px;color:var(--gold);font-weight:600;margin-bottom:10px}
+
+@media(max-width:600px){main{padding:12px};.kpi-val{font-size:18px}}
+
+/* ログイン / ローディング */
+#loginScreen,#loadingScreen{
+  position:fixed;inset:0;background:var(--bg);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:20px;z-index:9999;
+}
+#loginScreen{display:flex}
+#loadingScreen{display:none}
+#app{display:none}
+.login-card{
+  background:var(--card);border:1px solid var(--border);border-radius:14px;
+  padding:48px 40px;text-align:center;max-width:360px;width:90%;
+}
+.login-logo{
+  width:56px;height:56px;background:linear-gradient(135deg,var(--gold),var(--gold-lt));
+  border-radius:12px;display:flex;align-items:center;justify-content:center;
+  font-size:26px;font-weight:bold;color:#0B1220;margin:0 auto 20px;
+}
+.login-title{font-size:20px;font-weight:700;margin-bottom:6px}
+.login-sub{font-size:12px;color:var(--muted);margin-bottom:32px}
+.btn-google{
+  display:flex;align-items:center;justify-content:center;gap:10px;
+  width:100%;padding:12px 20px;border:1px solid var(--border);
+  background:var(--surface);color:var(--text);border-radius:8px;
+  font-size:14px;cursor:pointer;transition:all .2s;
+}
+.btn-google:hover{border-color:var(--gold);background:rgba(201,150,58,.06)}
+.btn-google svg{width:20px;height:20px;flex-shrink:0}
+.spinner{
+  width:40px;height:40px;border:3px solid var(--border);
+  border-top-color:var(--gold);border-radius:50%;
+  animation:spin .8s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-text{font-size:13px;color:var(--muted)}
+
+</style>
+</head>
+<body>
+
+<!-- ログイン画面 -->
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="login-logo">¥</div>
+    <div class="login-title">資産管理ダッシュボード</div>
+    <div class="login-sub">Googleアカウントでサインインしてください</div>
+    <button class="btn-google" onclick="_fbLogin()">
+      <svg viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.1H42V20H24v8h11.3C33.6 32.9 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 7.9 3l5.7-5.7C34.1 6.5 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.6-.4-3.9z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.6 15.1 18.9 12 24 12c3.1 0 5.8 1.1 7.9 3l5.7-5.7C34.1 6.5 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-1.9 13.5-5.1l-6.2-5.3C29.4 35.5 26.8 36 24 36c-5.2 0-9.5-3.1-11.3-7.5l-6.6 5.1C9.5 39.5 16.3 44 24 44z"/><path fill="#1976D2" d="M43.6 20.1H42V20H24v8h11.3c-.8 2.3-2.3 4.3-4.3 5.6l6.2 5.3C41.4 35.5 44 30.2 44 24c0-1.3-.1-2.6-.4-3.9z"/></svg>
+      Googleでサインイン
+    </button>
+  </div>
+</div>
+
+<!-- ローディング -->
+<div id="loadingScreen">
+  <div class="spinner"></div>
+  <div class="loading-text">データを読み込んでいます…</div>
+</div>
+
+<!-- アプリ本体 -->
+<div id="app">
+
+<header>
+  <div class="logo">
+    <div class="logo-mark">¥</div>
+    <span class="logo-text">資産管理ダッシュボード</span>
+  </div>
+  <div style="display:flex;align-items:center;gap:14px">
+    <span style="font-size:11px;color:var(--muted)" id="userEmail"></span>
+    <button onclick="_fbLogout()" style="padding:5px 12px;border:1px solid var(--border);background:transparent;color:var(--muted);border-radius:5px;font-size:11px;cursor:pointer">ログアウト</button>
+    <span style="font-size:11px;color:var(--muted)" id="hdrDate"></span>
+  </div>
+</header>
+
+<nav>
+  <button class="nav-btn active" onclick="nav('summary',this)">📊 サマリー</button>
+  <button class="nav-btn" onclick="nav('trust',this)">📈 投資信託管理</button>
+  <button class="nav-btn" onclick="nav('savings',this)">🏦 貯金額</button>
+  <button class="nav-btn" onclick="nav('ribon',this)">📋 定期預金（りぼん）</button>
+</nav>
+
+<main>
+
+<!-- ========== サマリー ========== -->
+<div id="section-summary" class="section active">
+  <div class="kpi-grid" id="kpiGrid"></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
+    <div class="card">
+      <div class="card-head"><div><div class="card-title">資産合計 推移</div><div class="card-sub">実績（直近18ヶ月）</div></div></div>
+      <div class="card-body"><canvas id="smTotalChart" height="170"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><div><div class="card-title">評価損益 推移</div><div class="card-sub">月次損益の変動</div></div></div>
+      <div class="card-body"><canvas id="smGainChart" height="170"></canvas></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-head"><div><div class="card-title">預かり金 残高予測</div><div class="card-sub">現在設定の積立額で毎月減算。利益確定で増加する場合あり</div></div></div>
+    <div class="card-body"><canvas id="smDepositChart" height="130"></canvas></div>
+  </div>
+</div>
+
+<!-- ========== 投資信託管理 ========== -->
+<div id="section-trust" class="section">
+  <div class="alert" id="trustAlert">更新しました</div>
+
+  <!-- 月次データ入力 -->
+  <div class="card">
+    <div class="card-head"><div class="card-title">📥 月次実績を入力</div></div>
+    <div class="card-body">
+      <div class="form-grid">
+        <div class="fg"><label>日付</label><input type="date" id="tin-date"></div>
+        <div class="fg"><label>資産合計</label><input type="number" id="tin-total" placeholder="18926830"></div>
+        <div class="fg"><label>投資信託 評価額</label><input type="number" id="tin-trust" placeholder="8149702"></div>
+        <div class="fg"><label>評価損益</label><input type="number" id="tin-gain" placeholder="1209701"></div>
+        <div class="fg"><label>累積損益</label><input type="number" id="tin-gainCum" placeholder="5472823"></div>
+        <div class="fg"><label>預かり金 残高</label><input type="number" id="tin-deposit" placeholder="11177128"></div>
+        <div class="fg"><label>実家分</label><input type="number" id="tin-family" placeholder="400000"></div>
+        <div class="fg"><label>積立（預かり分）J列</label><input type="number" id="tin-accumDep" placeholder="300000"></div>
+        <div class="fg"><label>積立（給料）K列</label><input type="number" id="tin-accumSal" placeholder="40000"></div>
+      </div>
+      <div class="btn-row">
+        <button class="btn-primary" onclick="addTrustRow()">追加</button>
+        <button class="btn-ghost" onclick="clearTrust()">クリア</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 利益確定イベント -->
+  <div class="card">
+    <div class="card-head">
+      <div><div class="card-title">💰 利益確定 → 預かり金に追加</div><div class="card-sub">投資信託売却などで預かり金が増えたとき。指定月の預かり金減算前に加算されます</div></div>
+    </div>
+    <div class="card-body">
+      <div class="deposit-event">
+        <div class="deposit-event-title">預かり金を増額する</div>
+        <div class="form-grid" style="grid-template-columns:1fr 1fr 1fr 1fr">
+          <div class="fg"><label>対象月</label><input type="month" id="dep-month"></div>
+          <div class="fg"><label>増額する金額（円）</label><input type="number" id="dep-newval" placeholder="例: 790000"></div>
+          <div class="fg"><label>メモ</label><input type="text" id="dep-memo" placeholder="例: SBIを利益確定79万円"></div>
+        </div>
+        <div class="btn-row" style="margin-top:10px">
+          <button class="btn-primary" onclick="applyDepositEvent()">適用</button>
+        </div>
+      </div>
+      <div id="depEventLog" style="font-size:11px;color:var(--muted)"></div>
+    </div>
+  </div>
+
+  <!-- 積立設定 -->
+  <div class="card">
+    <div class="card-head"><div><div class="card-title">⚙️ 積立額の変更</div><div class="card-sub">J列（預かり分）・K列（給料分）を変更すると以降の予測行に反映</div></div></div>
+    <div class="card-body">
+      <div class="form-grid" style="grid-template-columns:1fr 1fr 1fr 1fr">
+        <div class="fg"><label>変更開始月</label><input type="month" id="acc-month"></div>
+        <div class="fg"><label>積立（預かり分）J列</label><input type="number" id="acc-dep" placeholder="300000"></div>
+        <div class="fg"><label>積立（給料）K列</label><input type="number" id="acc-sal" placeholder="40000"></div>
+      </div>
+      <div class="btn-row">
+        <button class="btn-primary" onclick="applyAccumChange()">以降の行に適用</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- チャート -->
+  <div class="card">
+    <div class="card-head">
+      <div><div class="card-title">投資信託 評価額 / 資産合計</div></div>
+      <div class="toggle-row" id="tTglRange">
+        <span class="tgl" onclick="setTrustRange(12,this)">1年</span>
+        <span class="tgl" onclick="setTrustRange(24,this)">2年</span>
+        <span class="tgl on" onclick="setTrustRange(0,this)">全期間</span>
+      </div>
+    </div>
+    <div class="card-body"><canvas id="trustChart" height="200"></canvas></div>
+  </div>
+  <div class="card">
+    <div class="card-head"><div class="card-title">評価損益 月次</div></div>
+    <div class="card-body"><canvas id="gainChart" height="140"></canvas></div>
+  </div>
+  <div class="card">
+    <div class="card-head"><div><div class="card-title">預かり金 残高推移・予測</div><div class="card-sub">実績（Gold）+ シミュレーション（破線）</div></div></div>
+    <div class="card-body"><canvas id="depositChart" height="150"></canvas></div>
+  </div>
+
+  <!-- テーブル -->
+  <div class="card">
+    <div class="card-head">
+      <div class="card-title">全データ一覧</div>
+      <div class="toggle-row">
+        <span class="tgl on" onclick="setTrustFilter('all',this)">全行</span>
+        <span class="tgl" onclick="setTrustFilter('actual',this)">実績のみ</span>
+        <span class="tgl" onclick="setTrustFilter('future',this)">予測のみ</span>
+      </div>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr>
+          <th></th><th>日付</th>
+          <th class="num">資産合計</th><th class="num">投資信託</th>
+          <th class="num">評価損益</th><th class="num">損益率</th>
+          <th class="num">預かり金</th><th class="num">実家分</th>
+          <th class="num">積立_預かり</th><th class="num">積立_給料</th>
+          <th class="num">月積立合計</th><th></th>
+        </tr></thead>
+        <tbody id="trustTbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ========== 貯金額 ========== -->
+<div id="section-savings" class="section">
+  <div class="alert" id="savAlert">追加しました</div>
+  <div class="card">
+    <div class="card-head"><div class="card-title">📥 貯金額を入力</div></div>
+    <div class="card-body">
+      <div class="form-grid">
+        <div class="fg"><label>日付</label><input type="date" id="sav-date"></div>
+        <div class="fg"><label>りぼん(総合)</label><input type="number" id="sav-ribon"></div>
+        <div class="fg"><label>振替口座</label><input type="number" id="sav-furikae"></div>
+        <div class="fg"><label>合計（省略時は自動）</label><input type="number" id="sav-total"></div>
+      </div>
+      <div class="btn-row">
+        <button class="btn-primary" onclick="addSav()">追加</button>
+        <button class="btn-ghost" onclick="clearSav()">クリア</button>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-head">
+      <div><div class="card-title">貯金額 残高推移</div></div>
+      <div class="toggle-row" id="sTglRange">
+        <span class="tgl" onclick="setSavRange(12,this)">1年</span>
+        <span class="tgl" onclick="setSavRange(24,this)">2年</span>
+        <span class="tgl on" onclick="setSavRange(0,this)">全期間</span>
+      </div>
+    </div>
+    <div class="card-body"><canvas id="savChart" height="200"></canvas></div>
+  </div>
+  <div class="card">
+    <div class="card-head"><div class="card-title">記録一覧（新しい順）</div></div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr>
+          <th>日付</th><th class="num">りぼん(総合)</th>
+          <th class="num">振替口座</th><th class="num">合計</th><th></th>
+        </tr></thead>
+        <tbody id="savTbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ========== りぼん ========== -->
+<div id="section-ribon" class="section">
+  <div class="alert" id="ribAlert">更新しました</div>
+  <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr);max-width:600px" id="ribKpi"></div>
+  <div class="card">
+    <div class="card-head"><div class="card-title">📥 定期預金を追加</div></div>
+    <div class="card-body">
+      <div class="form-grid">
+        <div class="fg"><label>No.</label><input type="number" id="rib-no"></div>
+        <div class="fg"><label>金額</label><input type="number" id="rib-amount"></div>
+        <div class="fg"><label>ステータス</label>
+          <select id="rib-status">
+            <option value="undecided">【未定】</option>
+            <option value="done">済</option>
+            <option value="collect">集約</option>
+          </select>
+        </div>
+        <div class="fg" style="grid-column:span 2"><label>用途メモ</label><input type="text" id="rib-note"></div>
+      </div>
+      <div class="btn-row">
+        <button class="btn-primary" onclick="addRib()">追加</button>
+        <button class="btn-ghost" onclick="clearRib()">クリア</button>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-head">
+      <div class="card-title">定期預金一覧</div>
+      <div class="toggle-row" id="ribFilter">
+        <span class="tgl on" onclick="setRibFilter('all',this)">全て</span>
+        <span class="tgl" onclick="setRibFilter('undecided',this)">未定</span>
+        <span class="tgl" onclick="setRibFilter('done',this)">済</span>
+      </div>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>No.</th><th class="num">金額</th><th>ステータス</th><th>用途</th><th></th></tr></thead>
+        <tbody id="ribTbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+</main>
+</div><!-- /#app -->
+
+<script>
+// ============================
+// アプリデータ（メモリ）
+// ============================
+let trustData       = [];
+let savingsData     = [];
+let ribonData       = [];
+let depositEvents   = [];
+let accumSchedule   = [];
+
+// Firestoreドキュメントのid管理用マップ
+// trustData[i]._id, savingsData[i]._id, ribonData[i]._id で保持
+
+// ============================
+// 初期データ（Excelから移行済み）
+// 初回ログイン時にFirestoreへ一括保存される
+// ============================
+const INITIAL_TRUST = [
+  { date:"2023-06-19", total:8214224, trust:10014224, gain:2009888, gainPct:0.2511, gainCum:null, gainCumPct:null, deposit:0, family:1800000, accumDep:null, accumSal:null },
+  { date:"2023-06-20", total:8367983, trust:4849278, gain:631094, gainPct:0.1496, gainCum:null, gainCumPct:null, deposit:5318705, family:1800000, accumDep:null, accumSal:null },
+  { date:"2023-07-01", total:8547688, trust:5128983, gain:730799, gainPct:0.1662, gainCum:null, gainCumPct:null, deposit:5218705, family:1800000, accumDep:100000, accumSal:80000 },
+  { date:"2023-08-01", total:8578530, trust:5259825, gain:681642, gainPct:0.1489, gainCum:null, gainCumPct:null, deposit:5118705, family:1800000, accumDep:100000, accumSal:80000 },
+  { date:"2023-09-01", total:8795137, trust:5576432, gain:818249, gainPct:0.1720, gainCum:null, gainCumPct:null, deposit:5018705, family:1800000, accumDep:100000, accumSal:80000 },
+  { date:"2023-10-01", total:8726928, trust:5608223, gain:670038, gainPct:0.1357, gainCum:null, gainCumPct:null, deposit:4918705, family:1800000, accumDep:100000, accumSal:80000 },
+  { date:"2023-11-09", total:8938825, trust:5920120, gain:801936, gainPct:0.1567, gainCum:null, gainCumPct:null, deposit:4818705, family:1800000, accumDep:100000, accumSal:80000 },
+  { date:"2023-11-22", total:8808350, trust:2482776, gain:170348, gainPct:0.0737, gainCum:2337946, gainCumPct:0.3613, deposit:9125574, family:2800000, accumDep:null, accumSal:null },
+  { date:"2023-12-01", total:8669519, trust:2503945, gain:162278, gainPct:0.0693, gainCum:2329876, gainCumPct:0.3675, deposit:8965574, family:2800000, accumDep:160000, accumSal:80000 },
+  { date:"2024-01-01", total:8985962, trust:3021703, gain:200037, gainPct:0.0709, gainCum:2367635, gainCumPct:0.3577, deposit:8764259, family:2800000, accumDep:160000, accumSal:80000 },
+  { date:"2024-02-01", total:9110198, trust:3305939, gain:294272, gainPct:0.0977, gainCum:2461870, gainCumPct:0.3703, deposit:8604259, family:2800000, accumDep:160000, accumSal:30000 },
+  { date:"2024-03-01", total:9351590, trust:3707331, gain:435664, gainPct:0.1332, gainCum:2603262, gainCumPct:0.3858, deposit:8444259, family:2800000, accumDep:160000, accumSal:30000 },
+  { date:"2024-04-01", total:9524291, trust:4040032, gain:578366, gainPct:0.1671, gainCum:2745964, gainCumPct:0.4051, deposit:8284259, family:2800000, accumDep:160000, accumSal:30000 },
+  { date:"2024-05-01", total:9623528, trust:4299269, gain:647604, gainPct:0.1773, gainCum:2815202, gainCumPct:0.4135, deposit:8124259, family:2800000, accumDep:160000, accumSal:30000 },
+  { date:"2024-06-01", total:9688001, trust:4523742, gain:682076, gainPct:0.1775, gainCum:2849674, gainCumPct:0.4167, deposit:7064259, family:1900000, accumDep:160000, accumSal:30000 },
+  { date:"2024-07-01", total:9876829, trust:2892526, gain:464407, gainPct:0.1913, gainCum:3026646, gainCumPct:0.4418, deposit:8884303, family:1900000, accumDep:160000, accumSal:30000 },
+  { date:"2024-08-01", total:9805885, trust:2048491, gain:125807, gainPct:0.0654, gainCum:2873556, gainCumPct:0.4145, deposit:8857394, family:1100000, accumDep:160000, accumSal:30000 },
+  { date:"2024-09-01", total:9121798, trust:2224404, gain:111719, gainPct:0.0529, gainCum:2859468, gainCumPct:0.4566, deposit:7997394, family:1100000, accumDep:160000, accumSal:30000 },
+  { date:"2024-10-01", total:9243077, trust:2505683, gain:202998, gainPct:0.0882, gainCum:2950747, gainCumPct:0.4689, deposit:7737394, family:1000000, accumDep:160000, accumSal:30000 },
+  { date:"2024-11-01", total:9349583, trust:2778691, gain:286006, gainPct:0.1147, gainCum:3033755, gainCumPct:0.4803, deposit:7570892, family:1000000, accumDep:160000, accumSal:30000 },
+  { date:"2024-12-01", total:9461298, trust:3047486, gain:364801, gainPct:0.1360, gainCum:3112550, gainCumPct:0.4903, deposit:7403812, family:990000, accumDep:160000, accumSal:30000 },
+  { date:"2025-01-01", total:9570358, trust:2317738, gain:265053, gainPct:0.1291, gainCum:3224401, gainCumPct:0.5081, deposit:8242620, family:990000, accumDep:160000, accumSal:30000 },
+  { date:"2025-02-01", total:9578081, trust:2485461, gain:242776, gainPct:0.1083, gainCum:3202124, gainCumPct:0.5022, deposit:8082620, family:990000, accumDep:160000, accumSal:30000 },
+  { date:"2025-03-01", total:9608259, trust:3475639, gain:42954, gainPct:0.0125, gainCum:3002302, gainCumPct:0.4545, deposit:6922620, family:790000, accumDep:160000, accumSal:30000 },
+  { date:"2025-04-01", total:9134824, trust:3366404, gain:-256281, gainPct:-0.0707, gainCum:2703067, gainCumPct:0.4203, deposit:6558420, family:790000, accumDep:160000, accumSal:30000 },
+  { date:"2025-05-01", total:9507515, trust:3899095, gain:86410, gainPct:0.0227, gainCum:3045758, gainCumPct:0.4714, deposit:6398420, family:790000, accumDep:160000, accumSal:30000 },
+  { date:"2025-06-01", total:9633841, trust:4210917, gain:208232, gainPct:0.0520, gainCum:3167580, gainCumPct:0.4899, deposit:5822924, family:400000, accumDep:160000, accumSal:30000 },
+  { date:"2025-07-01", total:9828127, trust:4593679, gain:400993, gainPct:0.0956, gainCum:3360341, gainCumPct:0.5196, deposit:5634448, family:400000, accumDep:160000, accumSal:30000 },
+  { date:"2025-08-01", total:9707047, trust:4651674, gain:558989, gainPct:0.1366, gainCum:3518337, gainCumPct:0.5685, deposit:5455373, family:400000, accumDep:160000, accumSal:40000 },
+  { date:"2025-09-01", total:10192020, trust:5296647, gain:703963, gainPct:0.1533, gainCum:3663311, gainCumPct:0.5611, deposit:5295373, family:400000, accumDep:160000, accumSal:40000 },
+  { date:"2025-10-01", total:10450424, trust:5715051, gain:922366, gainPct:0.1925, gainCum:3881714, gainCumPct:0.5909, deposit:5135373, family:400000, accumDep:160000, accumSal:40000 },
+  { date:"2025-11-01", total:16565344, trust:8985051, gain:922366, gainPct:0.1144, gainCum:3881714, gainCumPct:0.3060, deposit:7980293, family:400000, accumDep:220000, accumSal:40000 },
+  { date:"2025-12-01", total:17348752, trust:5063849, gain:163849, gainPct:0.0334, gainCum:4426971, gainCumPct:0.3426, deposit:12684903, family:400000, accumDep:300000, accumSal:40000 },
+  { date:"2026-01-01", total:17570211, trust:5585308, gain:345309, gainPct:0.0659, gainCum:4608431, gainCumPct:0.3555, deposit:12384903, family:400000, accumDep:300000, accumSal:40000 },
+  { date:"2026-02-01", total:17166338, trust:5981435, gain:401435, gainPct:0.0719, gainCum:4664557, gainCumPct:0.3731, deposit:11584903, family:400000, accumDep:300000, accumSal:40000 },
+  { date:"2026-03-01", total:17289560, trust:6404657, gain:484656, gainPct:0.0819, gainCum:4747778, gainCumPct:0.3786, deposit:11284903, family:400000, accumDep:300000, accumSal:40000 },
+  { date:"2026-04-01", total:17070471, trust:6485568, gain:225567, gainPct:0.0360, gainCum:4488689, gainCumPct:0.3568, deposit:10984903, family:400000, accumDep:300000, accumSal:40000 },
+  { date:"2026-05-01", total:17741026, trust:7456123, gain:856123, gainPct:0.1297, gainCum:5119245, gainCumPct:0.4056, deposit:10684903, family:400000, accumDep:300000, accumSal:40000 },
+  { date:"2026-06-01", total:18926830, trust:8149702, gain:1209701, gainPct:0.1743, gainCum:5472823, gainCumPct:0.4068, deposit:11177128, family:400000, accumDep:300000, accumSal:40000 },
+];
+const INITIAL_SAVINGS = [
+  { date:"2021-08-10", ribon:1850000, furikae:674516, total:2524516 },
+  { date:"2021-11-30", ribon:1570000, furikae:554518, total:2124518 },
+  { date:"2022-02-13", ribon:1700000, furikae:825518, total:2525518 },
+  { date:"2022-07-22", ribon:2000000, furikae:594022, total:2594022 },
+  { date:"2022-12-17", ribon:2000000, furikae:964025, total:2964025 },
+  { date:"2023-02-10", ribon:1970000, furikae:428025, total:2398025 },
+  { date:"2023-06-11", ribon:1770000, furikae:150027, total:1920027 },
+  { date:"2023-10-21", ribon:1560000, furikae:1130027, total:3490027 },
+  { date:"2024-01-08", ribon:2020000, furikae:1449029, total:3579029 },
+  { date:"2024-02-02", ribon:1320000, furikae:1274029, total:3294029 },
+  { date:"2024-06-06", ribon:1320000, furikae:883702, total:2203702 },
+  { date:"2024-09-05", ribon:1290000, furikae:683768, total:1973768 },
+  { date:"2024-12-05", ribon:1290000, furikae:124768, total:1414768 },
+  { date:"2025-01-14", ribon:1590023, furikae:1209768, total:2799791 },
+  { date:"2025-06-05", ribon:1340023, furikae:309039, total:1649062 },
+  { date:"2025-08-06", ribon:1091000, furikae:2408039, total:3499039 },
+  { date:"2025-12-03", ribon:1091441, furikae:647854, total:1739295 },
+  { date:"2026-01-07", ribon:1391441, furikae:1814857, total:3206298 },
+  { date:"2026-03-04", ribon:1391441, furikae:1145972, total:2537413 },
+  { date:"2026-06-03", ribon:1391441, furikae:562972, total:1954413 },
+];
+const INITIAL_RIBON = [
+  { no:463, amount:110000, status:'undecided', note:'' },
+  { no:464, amount:1400000, status:'undecided', note:'' },
+  { no:466, amount:50000, status:'undecided', note:'ママ勤労金' },
+  { no:467, amount:210000, status:'undecided', note:'' },
+  { no:468, amount:110000, status:'undecided', note:'' },
+  { no:469, amount:140000, status:'undecided', note:'' },
+  { no:470, amount:250000, status:'undecided', note:'' },
+  { no:471, amount:90000, status:'undecided', note:'' },
+  { no:472, amount:2360022, status:'undecided', note:'集約' },
+  { no:473, amount:1560000, status:'undecided', note:'80万をジュニアNISAに変更' },
+  { no:475, amount:860000, status:'undecided', note:'集約' },
+  { no:476, amount:250000, status:'undecided', note:'集約' },
+  { no:477, amount:180000, status:'undecided', note:'集約' },
+  { no:483, amount:1091441, status:'undecided', note:'車検代10万円を含む' },
+  { no:484, amount:300000, status:'undecided', note:'車検代10万円を含む' },
+];
+
+// ============================
+// Firebase連携 初期化
+// ============================
+window._initApp = async () => {
+  // Firestoreから読み込み
+  const [trust, savings, ribon, settings] = await Promise.all([
+    window._db.loadAll('trustData'),
+    window._db.loadAll('savingsData'),
+    window._db.loadAll('ribonData'),
+    window._db.loadSettings(),
+  ]);
+
+  if (trust.length === 0) {
+    // 初回：初期データをFirestoreに一括保存
+    await Promise.all([
+      window._db.saveAll('trustData',  INITIAL_TRUST,  'date'),
+      window._db.saveAll('savingsData', INITIAL_SAVINGS, 'date'),
+      window._db.saveAll('ribonData',   INITIAL_RIBON,   'no'),
+    ]);
+    trustData   = INITIAL_TRUST.map(r=>({...r, _id:r.date}));
+    savingsData = INITIAL_SAVINGS.map(r=>({...r, _id:r.date}));
+    ribonData   = INITIAL_RIBON.map(r=>({...r, _id:String(r.no)}));
+  } else {
+    trustData   = trust.sort((a,b)=>a.date.localeCompare(b.date));
+    savingsData = savings.sort((a,b)=>a.date.localeCompare(b.date));
+    ribonData   = ribon.sort((a,b)=>a.no-b.no);
+  }
+
+  depositEvents = settings.depositEvents || [];
+  accumSchedule = settings.accumSchedule || [];
+
+  // ログイン後の利益確定ログ表示
+  const log = depositEvents.map(e=>`<div>💰 ${e.month}：+${yen(e.addAmount)} ${e.memo}</div>`).join('');
+  document.getElementById('depEventLog').innerHTML = log || '<span style="color:var(--muted)">（なし）</span>';
+
+  document.getElementById('hdrDate').textContent =
+    new Date().toLocaleDateString('ja-JP',{year:'numeric',month:'long',day:'numeric'});
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('tin-date').value = today;
+  document.getElementById('sav-date').value = today;
+
+  renderSummary();
+};
+
+// ============================
+// 設定保存ヘルパー
+// ============================
+async function saveSettings() {
+  await window._db.saveSettings({ depositEvents, accumSchedule });
+}
+
+// ============================
+// ユーティリティ
+// ============================
+Chart.defaults.color='#7A93B0';
+Chart.defaults.borderColor='#253554';
+Chart.defaults.font.size=11;
+const yen = v => v==null?'—':'¥'+Math.round(Math.abs(v)).toLocaleString();
+const pct = v => v==null?'—':(v*100).toFixed(1)+'%';
+const isActual = r => r.trust !== null && !r._forecast;
+
+function allRows() {
+  const actual = trustData.filter(isActual).sort((a,b)=>a.date.localeCompare(b.date));
+  return [...actual, ...buildForecast(60)];
+}
+
+// ============================
+// 予測行生成（毎月自動計算）
+// ============================
+function buildForecast(months=60) {
+  const actual = trustData.filter(isActual).sort((a,b)=>a.date.localeCompare(b.date));
+  if (!actual.length) return [];
+  const last = actual[actual.length-1];
+  let dep = last.deposit;
+  let accumDep = last.accumDep || 0;
+  let accumSal = last.accumSal || 0;
+  const rows = [];
+  let cur = new Date(last.date);
+  for (let i=0; i<months; i++) {
+    cur = new Date(cur.getFullYear(), cur.getMonth()+1, 1);
+    const dateStr = cur.toISOString().slice(0,10);
+    const monthStr = dateStr.slice(0,7);
+    const sched = accumSchedule.find(s=>s.month===monthStr);
+    if (sched) { if(sched.dep!=null) accumDep=sched.dep; if(sched.sal!=null) accumSal=sched.sal; }
+    const evts = depositEvents.filter(e=>e.month===monthStr);
+    evts.forEach(e=>{ dep += e.addAmount; });
+    dep = dep - accumDep - accumSal;
+    rows.push({ date:dateStr, total:null, trust:null, gain:null, gainPct:null,
+      gainCum:null, gainCumPct:null, deposit:dep, family:last.family,
+      accumDep, accumSal, _forecast:true,
+      _events: evts.length ? evts.map(e=>e.memo).join(', ') : null });
+    if (dep <= 0) break;
+  }
+  return rows;
+}
+
+// ============================
+// ナビ
+// ============================
+let charts={}, trustRangeN=0, trustFilterMode='all', savRangeN=0, ribFilterMode='all';
+function destroyChart(id){ if(charts[id]){ charts[id].destroy(); delete charts[id]; } }
+function nav(id,btn){
+  document.querySelectorAll('.section').forEach(e=>e.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(e=>e.classList.remove('active'));
+  document.getElementById('section-'+id).classList.add('active');
+  btn.classList.add('active');
+  if(id==='summary') renderSummary();
+  if(id==='trust') renderTrust();
+  if(id==='savings') renderSavings();
+  if(id==='ribon') renderRibon();
+}
+function showAlert(id){ const el=document.getElementById(id); el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),2500); }
+function tglSet(cid,el){ document.querySelectorAll('#'+cid+' .tgl').forEach(e=>e.classList.remove('on')); el.classList.add('on'); }
+function renderSummaryIfActive(){ if(document.getElementById('section-summary').classList.contains('active')) renderSummary(); }
+function v(id){ return document.getElementById(id).value.trim(); }
+function nv(id){ const s=v(id); return s===''?null:+s; }
+
+// ============================
+// サマリー
+// ============================
+function renderSummary(){
+  const rows=allRows(), actual=rows.filter(isActual);
+  const latest=actual[actual.length-1], prev=actual[actual.length-2];
+  const latSav=[...savingsData].sort((a,b)=>b.date.localeCompare(a.date))[0];
+  const ribUnd=ribonData.filter(r=>r.status==='undecided');
+  const ribTot=ribUnd.reduce((s,r)=>s+r.amount,0);
+  const totalDiff=prev?latest.total-prev.total:0;
+  const gainPct=latest.trust&&(latest.trust-latest.gain)>0?latest.gain/(latest.trust-latest.gain):0;
+  const forecast=rows.filter(r=>r._forecast);
+  const depleted=forecast.find(r=>r.deposit<=0);
+  const depInfo=depleted
+    ?`<span class="badge badge-neg">預かり金 ${depleted.date.slice(0,7)} 枯渇予測</span>`
+    :`<span class="badge badge-pos">予測期間内は残高あり</span>`;
+  const monthlyAccum=(latest.accumDep||0)+(latest.accumSal||0);
+  document.getElementById('kpiGrid').innerHTML=`
+    <div class="kpi"><div class="kpi-label">資産合計（最新実績）</div><div class="kpi-val">${yen(latest.total)}</div>
+      <div class="kpi-sub">${latest.date}</div><span class="badge ${totalDiff>=0?'badge-pos':'badge-neg'}">${totalDiff>=0?'▲':'▼'}${yen(Math.abs(totalDiff))} 前月比</span></div>
+    <div class="kpi"><div class="kpi-label">投資信託 評価額</div><div class="kpi-val">${yen(latest.trust)}</div></div>
+    <div class="kpi"><div class="kpi-label">評価損益</div><div class="kpi-val ${latest.gain>=0?'pos':'neg'}">${latest.gain>=0?'+':''}${yen(latest.gain)}</div>
+      <span class="badge ${latest.gain>=0?'badge-pos':'badge-neg'}">${gainPct>=0?'+':''}${(gainPct*100).toFixed(1)}%</span></div>
+    <div class="kpi"><div class="kpi-label">預かり金 残高</div><div class="kpi-val">${yen(latest.deposit)}</div>
+      <div class="kpi-sub">月積立 ${yen(monthlyAccum)}（預かり ${yen(latest.accumDep)} ＋ 給料 ${yen(latest.accumSal)}）</div>${depInfo}</div>
+    <div class="kpi"><div class="kpi-label">貯金額 合計</div><div class="kpi-val">${yen(latSav.total)}</div><div class="kpi-sub">${latSav.date}</div></div>
+    <div class="kpi"><div class="kpi-label">定期預金（未定）</div><div class="kpi-val">${yen(ribTot)}</div><div class="kpi-sub">${ribUnd.length}件</div></div>`;
+  const r18=actual.slice(-18);
+  destroyChart('smTotal'); destroyChart('smGain'); destroyChart('smDeposit');
+  charts.smTotal=new Chart(document.getElementById('smTotalChart'),{type:'line',data:{labels:r18.map(r=>r.date.slice(0,7)),datasets:[{label:'資産合計',data:r18.map(r=>r.total),borderColor:'#C9963A',backgroundColor:'rgba(201,150,58,.07)',borderWidth:2,pointRadius:3,fill:true,tension:.3}]},options:{plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>(v/10000).toFixed(0)+'万'}}}}});
+  charts.smGain=new Chart(document.getElementById('smGainChart'),{type:'bar',data:{labels:r18.map(r=>r.date.slice(0,7)),datasets:[{label:'評価損益',data:r18.map(r=>r.gain),backgroundColor:r18.map(r=>r.gain>=0?'rgba(60,201,138,.6)':'rgba(224,91,91,.6)'),borderRadius:3}]},options:{plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>(v/10000).toFixed(0)+'万'}}}}});
+  charts.smDeposit=new Chart(document.getElementById('smDepositChart'),{type:'line',data:{labels:rows.map(r=>r.date.slice(0,7)),datasets:[{label:'実績',data:rows.map(r=>isActual(r)?r.deposit:null),borderColor:'#C9963A',backgroundColor:'rgba(201,150,58,.06)',borderWidth:2,pointRadius:2,fill:true,tension:.3,spanGaps:false},{label:'予測（自動計算）',data:rows.map(r=>r._forecast?r.deposit:null),borderColor:'#8B6FCC',borderWidth:1.5,pointRadius:2,borderDash:[5,4],tension:.3,spanGaps:false}]},options:{plugins:{legend:{labels:{boxWidth:10}}},scales:{y:{ticks:{callback:v=>(v/10000).toFixed(0)+'万'}}}}});
+}
+
+// ============================
+// 投資信託
+// ============================
+function renderTrust(){
+  const rows=allRows();
+  let filtered=rows;
+  if(trustFilterMode==='actual') filtered=rows.filter(isActual);
+  if(trustFilterMode==='future') filtered=rows.filter(r=>r._forecast);
+  const rng=trustRangeN===0?rows:rows.slice(-trustRangeN);
+  const actualRng=rng.filter(isActual);
+  destroyChart('trust'); destroyChart('gain'); destroyChart('deposit');
+  charts.trust=new Chart(document.getElementById('trustChart'),{type:'line',data:{labels:actualRng.map(r=>r.date.slice(0,7)),datasets:[{label:'資産合計',data:actualRng.map(r=>r.total),borderColor:'#C9963A',backgroundColor:'rgba(201,150,58,.06)',borderWidth:2,pointRadius:3,fill:true,tension:.3},{label:'投資信託 評価額',data:actualRng.map(r=>r.trust),borderColor:'#4A90D9',backgroundColor:'rgba(74,144,217,.05)',borderWidth:2,pointRadius:3,fill:true,tension:.3}]},options:{interaction:{mode:'index',intersect:false},plugins:{legend:{labels:{boxWidth:12}}},scales:{y:{ticks:{callback:v=>(v/10000).toFixed(0)+'万'}}}}});
+  charts.gain=new Chart(document.getElementById('gainChart'),{type:'bar',data:{labels:actualRng.map(r=>r.date.slice(0,7)),datasets:[{label:'評価損益',data:actualRng.map(r=>r.gain),backgroundColor:actualRng.map(r=>(r.gain||0)>=0?'rgba(60,201,138,.65)':'rgba(224,91,91,.65)'),borderRadius:3}]},options:{plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>(v/10000).toFixed(0)+'万'}}}}});
+  charts.deposit=new Chart(document.getElementById('depositChart'),{type:'line',data:{labels:rng.map(r=>r.date.slice(0,7)),datasets:[{label:'実績',data:rng.map(r=>isActual(r)?r.deposit:null),borderColor:'#C9963A',borderWidth:2,pointRadius:2,tension:.3,fill:false,spanGaps:false},{label:'予測（自動計算）',data:rng.map(r=>r._forecast?r.deposit:null),borderColor:'#8B6FCC',borderWidth:1.5,borderDash:[5,4],pointRadius:2,tension:.3,fill:false,spanGaps:false}]},options:{interaction:{mode:'index',intersect:false},plugins:{legend:{labels:{boxWidth:10}}},scales:{y:{ticks:{callback:v=>(v/10000).toFixed(0)+'万'}}}}});
+  const maxAbs=Math.max(...filtered.filter(r=>r.gain!==null).map(r=>Math.abs(r.gain)),1);
+  document.getElementById('trustTbody').innerHTML=filtered.slice().reverse().map(r=>{
+    const act=isActual(r), barW=r.gain!=null?Math.round(Math.abs(r.gain)/maxAbs*60):0;
+    const acc=(r.accumDep||0)+(r.accumSal||0);
+    const evtMark=r._events?`<span title="${r._events}" style="color:var(--gold);margin-left:4px">💰</span>`:'';
+    return `<tr class="${act?'':'tr-future'}">
+      <td><span class="tag ${act?'tag-now':'tag-future'}">${act?'実績':'予測'}</span></td>
+      <td>${r.date}${evtMark}</td>
+      <td class="num">${r.total!=null?yen(r.total):'—'}</td>
+      <td class="num">${r.trust!=null?yen(r.trust):'—'}</td>
+      <td class="num ${r.gain==null?'':r.gain>=0?'pos':'neg'}">${r.gain!=null?`<div style="display:flex;align-items:center;gap:4px;justify-content:flex-end"><span>${r.gain>=0?'+':''}${yen(r.gain)}</span><div style="height:4px;width:${barW}px;border-radius:2px;background:${(r.gain||0)>=0?'var(--green)':'var(--red)'}"></div></div>`:'—'}</td>
+      <td class="num ${r.gainPct==null?'':r.gainPct>=0?'pos':'neg'}">${r.gainPct!=null?pct(r.gainPct):'—'}</td>
+      <td class="num ${r.deposit<0?'neg':''}">${yen(r.deposit)}</td>
+      <td class="num" style="color:var(--muted)">${yen(r.family)}</td>
+      <td class="num" style="color:var(--blue)">${yen(r.accumDep)}</td>
+      <td class="num" style="color:var(--purple)">${yen(r.accumSal)}</td>
+      <td class="num" style="color:var(--gold-lt);font-weight:600">${acc?yen(acc):'—'}</td>
+      <td>${act?`<button class="btn-sm" onclick="deleteTrust('${r._id}')">削除</button>`:''}</td>
+    </tr>`;
+  }).join('');
+}
+function setTrustRange(n,el){ trustRangeN=n; tglSet('tTglRange',el); renderTrust(); }
+function setTrustFilter(m){ trustFilterMode=m; renderTrust(); }
+
+async function addTrustRow(){
+  const d=v('tin-date'),tot=+v('tin-total'),tr=nv('tin-trust'),gain=nv('tin-gain'),
+        gainCum=nv('tin-gainCum'),dep=nv('tin-deposit'),fam=nv('tin-family'),
+        accumDep=nv('tin-accumDep'),accumSal=nv('tin-accumSal');
+  if(!d||!tot){ alert('日付と資産合計は必須'); return; }
+  const gainPct=tr&&gain!=null&&(tr-gain)>0?gain/(tr-gain):null;
+  const row={date:d,total:tot,trust:tr,gain,gainPct,gainCum,gainCumPct:null,deposit:dep,family:fam,accumDep,accumSal};
+  const id=await window._db.addOne('trustData',row,d);
+  trustData.push({...row,_id:id});
+  trustData.sort((a,b)=>a.date.localeCompare(b.date));
+  clearTrust(); renderTrust(); renderSummaryIfActive(); showAlert('trustAlert');
+}
+async function deleteTrust(id){
+  await window._db.deleteOne('trustData',id);
+  trustData=trustData.filter(r=>r._id!==id);
+  renderTrust(); renderSummaryIfActive();
+}
+function clearTrust(){ ['tin-date','tin-total','tin-trust','tin-gain','tin-gainCum','tin-deposit','tin-family','tin-accumDep','tin-accumSal'].forEach(id=>document.getElementById(id).value=''); }
+
+async function applyDepositEvent(){
+  const mo=v('dep-month'),addVal=+v('dep-newval'),memo=v('dep-memo');
+  if(!mo||!addVal){ alert('対象月と増額額を入力してください'); return; }
+  depositEvents=depositEvents.filter(e=>e.month!==mo);
+  depositEvents.push({month:mo,addAmount:addVal,memo:memo||''});
+  await saveSettings();
+  renderTrust(); renderSummaryIfActive(); showAlert('trustAlert');
+  const log=depositEvents.map(e=>`<div>💰 ${e.month}：+${yen(e.addAmount)} ${e.memo}</div>`).join('');
+  document.getElementById('depEventLog').innerHTML=log||'<span style="color:var(--muted)">（なし）</span>';
+  ['dep-month','dep-newval','dep-memo'].forEach(id=>document.getElementById(id).value='');
+}
+async function applyAccumChange(){
+  const mo=v('acc-month'),dep=nv('acc-dep'),sal=nv('acc-sal');
+  if(!mo||(dep===null&&sal===null)){ alert('開始月と変更する積立額を入力してください'); return; }
+  accumSchedule=accumSchedule.filter(s=>s.month!==mo);
+  accumSchedule.push({month:mo,dep,sal});
+  accumSchedule.sort((a,b)=>a.month.localeCompare(b.month));
+  await saveSettings();
+  renderTrust(); renderSummaryIfActive(); showAlert('trustAlert');
+  ['acc-month','acc-dep','acc-sal'].forEach(id=>document.getElementById(id).value='');
+}
+
+// ============================
+// 貯金額
+// ============================
+function renderSavings(){
+  const sorted=[...savingsData].sort((a,b)=>a.date.localeCompare(b.date));
+  const rng=savRangeN===0?sorted:sorted.slice(-savRangeN);
+  destroyChart('sav');
+  charts.sav=new Chart(document.getElementById('savChart'),{type:'line',data:{labels:rng.map(r=>r.date.slice(0,7)),datasets:[{label:'合計',data:rng.map(r=>r.total),borderColor:'#C9963A',borderWidth:2,pointRadius:3,fill:false,tension:.3},{label:'りぼん(総合)',data:rng.map(r=>r.ribon),borderColor:'#4A90D9',backgroundColor:'rgba(74,144,217,.06)',borderWidth:1.5,pointRadius:2,fill:true,tension:.3},{label:'振替口座',data:rng.map(r=>r.furikae),borderColor:'#8B6FCC',backgroundColor:'rgba(139,111,204,.05)',borderWidth:1.5,pointRadius:2,fill:true,tension:.3}]},options:{interaction:{mode:'index',intersect:false},plugins:{legend:{labels:{boxWidth:10}}},scales:{y:{ticks:{callback:v=>(v/10000).toFixed(0)+'万'}}}}});
+  document.getElementById('savTbody').innerHTML=[...savingsData].sort((a,b)=>b.date.localeCompare(a.date)).map(r=>`
+    <tr><td>${r.date}</td><td class="num" style="color:var(--blue)">${yen(r.ribon)}</td>
+    <td class="num" style="color:var(--purple)">${yen(r.furikae)}</td>
+    <td class="num" style="color:var(--gold-lt);font-weight:600">${yen(r.total)}</td>
+    <td><button class="btn-sm" onclick="deleteSav('${r._id}')">削除</button></td></tr>`).join('');
+}
+function setSavRange(n,el){ savRangeN=n; tglSet('sTglRange',el); renderSavings(); }
+async function addSav(){
+  const d=v('sav-date'),rib=+v('sav-ribon'),fur=+v('sav-furikae'),tot=nv('sav-total');
+  if(!d){ alert('日付必須'); return; }
+  const row={date:d,ribon:rib,furikae:fur,total:tot!==null?tot:rib+fur};
+  const id=await window._db.addOne('savingsData',row,d);
+  savingsData.push({...row,_id:id});
+  clearSav(); renderSavings(); showAlert('savAlert');
+}
+async function deleteSav(id){
+  await window._db.deleteOne('savingsData',id);
+  savingsData=savingsData.filter(r=>r._id!==id);
+  renderSavings();
+}
+function clearSav(){ ['sav-date','sav-ribon','sav-furikae','sav-total'].forEach(id=>document.getElementById(id).value=''); }
+
+// ============================
+// りぼん
+// ============================
+function renderRibon(){
+  const und=ribonData.filter(r=>r.status==='undecided');
+  const tot=und.reduce((s,r)=>s+r.amount,0), max=und.length?Math.max(...und.map(r=>r.amount)):0;
+  document.getElementById('ribKpi').innerHTML=`
+    <div class="kpi"><div class="kpi-label">未定 合計</div><div class="kpi-val">${yen(tot)}</div></div>
+    <div class="kpi"><div class="kpi-label">未定 件数</div><div class="kpi-val">${und.length}件</div></div>
+    <div class="kpi"><div class="kpi-label">最大金額</div><div class="kpi-val">${yen(max)}</div></div>`;
+  let filt=ribFilterMode==='all'?ribonData:ribFilterMode==='undecided'?ribonData.filter(r=>r.status==='undecided'):ribonData.filter(r=>r.status!=='undecided');
+  filt=[...filt].sort((a,b)=>b.no-a.no);
+  const maxA=filt.length?Math.max(...filt.map(r=>r.amount)):1;
+  const stl={undecided:'tag-undecided',done:'tag-done',collect:'tag-done'};
+  const stN={undecided:'【未定】',done:'済',collect:'集約'};
+  document.getElementById('ribTbody').innerHTML=filt.map(r=>{
+    const bw=Math.round(r.amount/maxA*70);
+    return `<tr>
+      <td style="font-family:var(--mono);color:var(--muted)">No.${r.no}</td>
+      <td class="num"><div style="display:flex;align-items:center;gap:6px;justify-content:flex-end"><span>${yen(r.amount)}</span><div style="height:4px;width:${bw}px;border-radius:2px;background:var(--gold);opacity:.4"></div></div></td>
+      <td><span class="tag ${stl[r.status]}">${stN[r.status]}</span></td>
+      <td style="color:var(--muted);font-size:11px">${r.note||'—'}</td>
+      <td style="display:flex;gap:4px">
+        ${r.status==='undecided'?`<button class="btn-sm ok" onclick="resolveRib('${r._id}')">解約済</button>`:''}
+        <button class="btn-sm" onclick="deleteRib('${r._id}')">削除</button>
+      </td></tr>`;
+  }).join('');
+}
+function setRibFilter(m,el){ ribFilterMode=m; tglSet('ribFilter',el); renderRibon(); }
+async function addRib(){
+  const no=+v('rib-no'),amt=+v('rib-amount'),st=v('rib-status'),note=v('rib-note');
+  if(!no||!amt){ alert('No.と金額必須'); return; }
+  const row={no,amount:amt,status:st,note};
+  const id=await window._db.addOne('ribonData',row,no);
+  ribonData.push({...row,_id:id});
+  ribonData.sort((a,b)=>a.no-b.no);
+  clearRib(); renderRibon(); showAlert('ribAlert');
+}
+async function resolveRib(id){
+  await window._db.updateOne('ribonData',id,{status:'done'});
+  const r=ribonData.find(r=>r._id===id);
+  if(r) r.status='done';
+  renderRibon();
+}
+async function deleteRib(id){
+  await window._db.deleteOne('ribonData',id);
+  ribonData=ribonData.filter(r=>r._id!==id);
+  renderRibon();
+}
+function clearRib(){ ['rib-no','rib-amount','rib-note'].forEach(id=>document.getElementById(id).value=''); }
+</script>
+</body>
+</html>
