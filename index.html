@@ -828,12 +828,14 @@ function renderSummary(){
   const monthlyAccum=(latest.accumDep||0)+(latest.accumSal||0);
   const otherTotal = otherAssets.reduce((s,r)=>s+r.amount, 0);
   const ribonTotal = ribonData.filter(r=>r.status==='undecided').reduce((s,r)=>s+r.amount, 0);
-  // ③ りぼん合計を貯金額の最新りぼん値として使う
   const latSavRibon = ribonTotal;
   const latSavTotal = latSavRibon + (latSav ? latSav.furikae : 0);
+  // 資産合計にその他金融資産を合算
+  const grandTotal = (latest.total||0) + otherTotal;
+  const grandTotalDiff = prev ? grandTotal - ((prev.total||0) + otherTotal) : totalDiff;
   document.getElementById('kpiGrid').innerHTML=`
-    <div class="kpi"><div class="kpi-label">資産合計（最新実績）</div><div class="kpi-val">${yen(latest.total)}</div>
-      <div class="kpi-sub">${latest.date}</div><span class="badge ${totalDiff>=0?'badge-pos':'badge-neg'}">${totalDiff>=0?'▲':'▼'}${yen(Math.abs(totalDiff))} 前月比</span></div>
+    <div class="kpi"><div class="kpi-label">資産合計（最新実績）</div><div class="kpi-val">${yen(grandTotal)}</div>
+      <div class="kpi-sub">${latest.date}（投信＋その他）</div><span class="badge ${totalDiff>=0?'badge-pos':'badge-neg'}">${totalDiff>=0?'+':'−'}${yen(Math.abs(totalDiff))} 前月比</span></div>
     <div class="kpi"><div class="kpi-label">投資信託 評価額</div><div class="kpi-val">${yen(latest.trust)}</div></div>
     <div class="kpi"><div class="kpi-label">評価損益</div><div class="kpi-val ${latest.gain>=0?'pos':'neg'}">${latest.gain>=0?'+':''}${yen(latest.gain)}</div>
       <span class="badge ${latest.gain>=0?'badge-pos':'badge-neg'}">${gainPct>=0?'+':''}${(gainPct*100).toFixed(1)}%</span></div>
