@@ -463,11 +463,12 @@ tr:hover td{background:rgba(255,255,255,.02)}
   <div class="card">
     <div class="card-head"><div class="card-title">📥 貯金額を入力</div></div>
     <div class="card-body">
+      <div style="background:rgba(201,150,58,.06);border:1px solid rgba(201,150,58,.2);border-radius:8px;padding:12px;margin-bottom:14px;font-size:12px;color:var(--muted)">
+        💡 <span style="color:var(--gold-lt)">りぼん(総合)</span> は定期預金（りぼん）タブの未定合計から自動計算されます
+      </div>
       <div class="form-grid">
         <div class="fg"><label>日付</label><input type="date" id="sav-date"></div>
-        <div class="fg"><label>りぼん(総合)</label><input type="number" id="sav-ribon"></div>
-        <div class="fg"><label>振替口座</label><input type="number" id="sav-furikae"></div>
-        <div class="fg"><label>合計（省略時は自動）</label><input type="number" id="sav-total"></div>
+        <div class="fg"><label>振替口座（円）</label><input type="number" id="sav-furikae"></div>
       </div>
       <div class="btn-row">
         <button class="btn-primary" onclick="addSav()">追加</button>
@@ -825,6 +826,11 @@ function renderSummary(){
     ?`<span class="badge badge-neg">預かり金 ${depleted.date.slice(0,7)} 枯渇予測</span>`
     :`<span class="badge badge-pos">予測期間内は残高あり</span>`;
   const monthlyAccum=(latest.accumDep||0)+(latest.accumSal||0);
+  const otherTotal = otherAssets.reduce((s,r)=>s+r.amount, 0);
+  const ribonTotal = ribonData.filter(r=>r.status==='undecided').reduce((s,r)=>s+r.amount, 0);
+  // ③ りぼん合計を貯金額の最新りぼん値として使う
+  const latSavRibon = ribonTotal;
+  const latSavTotal = latSavRibon + (latSav ? latSav.furikae : 0);
   document.getElementById('kpiGrid').innerHTML=`
     <div class="kpi"><div class="kpi-label">資産合計（最新実績）</div><div class="kpi-val">${yen(latest.total)}</div>
       <div class="kpi-sub">${latest.date}</div><span class="badge ${totalDiff>=0?'badge-pos':'badge-neg'}">${totalDiff>=0?'▲':'▼'}${yen(Math.abs(totalDiff))} 前月比</span></div>
@@ -833,8 +839,10 @@ function renderSummary(){
       <span class="badge ${latest.gain>=0?'badge-pos':'badge-neg'}">${gainPct>=0?'+':''}${(gainPct*100).toFixed(1)}%</span></div>
     <div class="kpi"><div class="kpi-label">預かり金 残高</div><div class="kpi-val">${yen(latest.deposit)}</div>
       <div class="kpi-sub">月積立 ${yen(monthlyAccum)}（預かり ${yen(latest.accumDep)} ＋ 給料 ${yen(latest.accumSal)}）</div>${depInfo}</div>
-    <div class="kpi"><div class="kpi-label">貯金額 合計</div><div class="kpi-val">${yen(latSav.total)}</div><div class="kpi-sub">${latSav.date}</div></div>
-    <div class="kpi"><div class="kpi-label">定期預金（未定）</div><div class="kpi-val">${yen(ribTot)}</div><div class="kpi-sub">${ribUnd.length}件</div></div>`;
+    <div class="kpi"><div class="kpi-label">貯金額 合計</div><div class="kpi-val">${yen(latSavTotal)}</div>
+      <div class="kpi-sub">りぼん ${yen(latSavRibon)} ＋ 振替 ${yen(latSav?latSav.furikae:0)}</div></div>
+    <div class="kpi"><div class="kpi-label">定期預金（未定）</div><div class="kpi-val">${yen(ribTot)}</div><div class="kpi-sub">${ribUnd.length}件</div></div>
+    <div class="kpi"><div class="kpi-label">その他金融資産</div><div class="kpi-val">${yen(otherTotal)}</div><div class="kpi-sub">${otherAssets.length}件</div></div>`;
   const r18=actual.slice(-18);
   destroyChart('smTotal'); destroyChart('smGain'); destroyChart('smDeposit');
   charts.smTotal=new Chart(document.getElementById('smTotalChart'),{type:'line',data:{labels:r18.map(r=>r.date.slice(0,7)),datasets:[{label:'資産合計',data:r18.map(r=>r.total),borderColor:'#C9963A',backgroundColor:'rgba(201,150,58,.07)',borderWidth:2,pointRadius:3,fill:true,tension:.3}]},options:{plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>(v/10000).toFixed(0)+'万'}}}}});
@@ -962,8 +970,6 @@ const otherTypeColor = { ideco:'var(--gold)', insurance:'var(--green)', bond:'va
 
 function renderOther(){
   const total = otherAssets.reduce((s,r)=>s+r.amount,0);
-  const byType = {};
-  otherAssets.forEach(r=>{ byType[r.type]=(byType[r.type]||0)+r.amount; });
   document.getElementById('otherKpi').innerHTML = `
     <div class="kpi"><div class="kpi-label">その他資産 合計</div><div class="kpi-val">${yen(total)}</div></div>
     <div class="kpi"><div class="kpi-label">保有件数</div><div class="kpi-val">${otherAssets.length}件</div></div>
@@ -983,22 +989,41 @@ function renderOther(){
       </td>
       <td style="color:var(--muted);font-size:11px">${r.date||'—'}</td>
       <td style="color:var(--muted);font-size:11px">${r.note||'—'}</td>
-      <td><button class="btn-sm" onclick="deleteOther('${r._id}')">削除</button></td>
+      <td style="display:flex;gap:4px">
+        <button class="btn-sm ok" onclick="editOther('${r._id}')">編集</button>
+        <button class="btn-sm" onclick="deleteOther('${r._id}')">削除</button>
+      </td>
     </tr>`;
   }).join('');
 }
+
+function editOther(id){
+  const r = otherAssets.find(r=>r._id===id);
+  if(!r) return;
+  document.getElementById('oth-name').value    = r.name;
+  document.getElementById('oth-type').value    = r.type;
+  document.getElementById('oth-amount').value  = r.amount;
+  document.getElementById('oth-date').value    = r.date||'';
+  document.getElementById('oth-note').value    = r.note||'';
+  // 編集中のIDを保持
+  document.getElementById('oth-name').dataset.editId = id;
+  document.querySelector('#section-other .card-body').scrollIntoView({behavior:'smooth'});
+}
 async function addOther(){
-  const name=v('oth-name'), type=v('oth-type'), amount=nv('oth-amount'), date=v('oth-date'), note=v('oth-note');
+  const nameEl = document.getElementById('oth-name');
+  const name=nameEl.value.trim(), type=v('oth-type'), amount=nv('oth-amount'), date=v('oth-date'), note=v('oth-note');
   if(!name||amount===null){ alert('資産名と評価額は必須'); return; }
-  // 同名の資産は上書き更新
-  const existing = otherAssets.find(r=>r.name===name);
-  if(existing){
-    const updated = {...existing, type, amount, date, note};
-    await window._db.updateOne('otherAssets', existing._id, {type,amount,date,note});
-    Object.assign(existing, updated);
+  const editId = nameEl.dataset.editId;
+  if(editId){
+    // 編集モード：既存レコードを更新
+    const data = {name, type, amount, date, note};
+    await window._db.updateOne('otherAssets', editId, data);
+    const r = otherAssets.find(r=>r._id===editId);
+    if(r) Object.assign(r, data);
   } else {
+    // 新規追加
     const row = {name, type, amount, date, note};
-    const id = await window._db.addOne('otherAssets', row, name.replace(/\s/g,'_'));
+    const id = await window._db.addOne('otherAssets', row, name.replace(/[\s\/]/g,'_'));
     otherAssets.push({...row, _id:id});
   }
   clearOther(); renderOther(); renderSummaryIfActive(); showAlert('otherAlert');
@@ -1008,27 +1033,39 @@ async function deleteOther(id){
   otherAssets = otherAssets.filter(r=>r._id!==id);
   renderOther(); renderSummaryIfActive();
 }
-function clearOther(){ ['oth-name','oth-amount','oth-date','oth-note'].forEach(id=>document.getElementById(id).value=''); }
+function clearOther(){
+  ['oth-name','oth-amount','oth-date','oth-note'].forEach(id=>document.getElementById(id).value='');
+  delete document.getElementById('oth-name').dataset.editId;
+}
 
 // ============================
 // 貯金額
 // ============================
 function renderSavings(){
+  // りぼん合計はribonDataの未定合計から自動計算
+  const ribTotal = ribonData.filter(r=>r.status==='undecided').reduce((s,r)=>s+r.amount,0);
   const sorted=[...savingsData].sort((a,b)=>a.date.localeCompare(b.date));
   const rng=savRangeN===0?sorted:sorted.slice(-savRangeN);
+  // 表示用：振替口座の記録 + りぼん合計（現在値）
   destroyChart('sav');
-  charts.sav=new Chart(document.getElementById('savChart'),{type:'line',data:{labels:rng.map(r=>r.date.slice(0,7)),datasets:[{label:'合計',data:rng.map(r=>r.total),borderColor:'#C9963A',borderWidth:2,pointRadius:3,fill:false,tension:.3},{label:'りぼん(総合)',data:rng.map(r=>r.ribon),borderColor:'#4A90D9',backgroundColor:'rgba(74,144,217,.06)',borderWidth:1.5,pointRadius:2,fill:true,tension:.3},{label:'振替口座',data:rng.map(r=>r.furikae),borderColor:'#8B6FCC',backgroundColor:'rgba(139,111,204,.05)',borderWidth:1.5,pointRadius:2,fill:true,tension:.3}]},options:{interaction:{mode:'index',intersect:false},plugins:{legend:{labels:{boxWidth:10}}},scales:{y:{ticks:{callback:v=>(v/10000).toFixed(0)+'万'}}}}});
+  charts.sav=new Chart(document.getElementById('savChart'),{type:'line',data:{labels:rng.map(r=>r.date.slice(0,7)),datasets:[
+    {label:'合計', data:rng.map(r=>(r.furikae||0)+ribTotal), borderColor:'#C9963A', borderWidth:2, pointRadius:3, fill:false, tension:.3},
+    {label:'りぼん(総合・現在値)', data:rng.map(()=>ribTotal), borderColor:'#4A90D9', backgroundColor:'rgba(74,144,217,.06)', borderWidth:1.5, pointRadius:0, fill:true, tension:.3, borderDash:[4,3]},
+    {label:'振替口座', data:rng.map(r=>r.furikae||0), borderColor:'#8B6FCC', backgroundColor:'rgba(139,111,204,.05)', borderWidth:1.5, pointRadius:2, fill:true, tension:.3},
+  ]},options:{interaction:{mode:'index',intersect:false},plugins:{legend:{labels:{boxWidth:10}}},scales:{y:{ticks:{callback:v=>(v/10000).toFixed(0)+'万'}}}}});
   document.getElementById('savTbody').innerHTML=[...savingsData].sort((a,b)=>b.date.localeCompare(a.date)).map(r=>`
-    <tr><td>${r.date}</td><td class="num" style="color:var(--blue)">${yen(r.ribon)}</td>
+    <tr><td>${r.date}</td>
+    <td class="num" style="color:var(--blue)">${yen(ribTotal)}<span style="font-size:10px;color:var(--muted)">（現在）</span></td>
     <td class="num" style="color:var(--purple)">${yen(r.furikae)}</td>
-    <td class="num" style="color:var(--gold-lt);font-weight:600">${yen(r.total)}</td>
+    <td class="num" style="color:var(--gold-lt);font-weight:600">${yen((r.furikae||0)+ribTotal)}</td>
     <td><button class="btn-sm" onclick="deleteSav('${r._id}')">削除</button></td></tr>`).join('');
 }
 function setSavRange(n,el){ savRangeN=n; tglSet('sTglRange',el); renderSavings(); }
 async function addSav(){
-  const d=v('sav-date'),rib=+v('sav-ribon'),fur=+v('sav-furikae'),tot=nv('sav-total');
+  const d=v('sav-date'), fur=+v('sav-furikae');
   if(!d){ alert('日付必須'); return; }
-  const row={date:d,ribon:rib,furikae:fur,total:tot!==null?tot:rib+fur};
+  const ribTotal = ribonData.filter(r=>r.status==='undecided').reduce((s,r)=>s+r.amount,0);
+  const row={date:d, furikae:fur, ribon:ribTotal, total:fur+ribTotal};
   const id=await window._db.addOne('savingsData',row,d);
   savingsData.push({...row,_id:id});
   clearSav(); renderSavings(); showAlert('savAlert');
@@ -1038,7 +1075,7 @@ async function deleteSav(id){
   savingsData=savingsData.filter(r=>r._id!==id);
   renderSavings();
 }
-function clearSav(){ ['sav-date','sav-ribon','sav-furikae','sav-total'].forEach(id=>document.getElementById(id).value=''); }
+function clearSav(){ ['sav-date','sav-furikae'].forEach(id=>document.getElementById(id).value=''); }
 
 // ============================
 // りぼん
@@ -1083,11 +1120,15 @@ async function resolveRib(id){
   const r=ribonData.find(r=>r._id===id);
   if(r) r.status='done';
   renderRibon();
+  if(document.getElementById('section-savings').classList.contains('active')) renderSavings();
+  renderSummaryIfActive();
 }
 async function deleteRib(id){
   await window._db.deleteOne('ribonData',id);
   ribonData=ribonData.filter(r=>r._id!==id);
   renderRibon();
+  if(document.getElementById('section-savings').classList.contains('active')) renderSavings();
+  renderSummaryIfActive();
 }
 function clearRib(){ ['rib-no','rib-amount','rib-note'].forEach(id=>document.getElementById(id).value=''); }
 </script>
