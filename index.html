@@ -304,6 +304,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
   <button class="nav-btn" onclick="nav('trust',this)">📈 投資信託管理</button>
   <button class="nav-btn" onclick="nav('savings',this)">🏦 貯金額</button>
   <button class="nav-btn" onclick="nav('ribon',this)">📋 定期預金（りぼん）</button>
+  <button class="nav-btn" onclick="nav('other',this)">💴 その他金融資産</button>
 </nav>
 
 <main>
@@ -337,16 +338,34 @@ tr:hover td{background:rgba(255,255,255,.02)}
     <div class="card-body">
       <div class="form-grid">
         <div class="fg"><label>日付</label><input type="date" id="tin-date"></div>
-        <div class="fg"><label>投資信託 評価額</label><input type="number" id="tin-trust" placeholder="10633129"></div>
-        <div class="fg"><label>評価損益</label><input type="number" id="tin-gain" placeholder="1863606"></div>
-        <div class="fg"><label>累積損益</label><input type="number" id="tin-gainCum" placeholder="5472823"></div>
-        <div class="fg"><label>預かり金 残高</label><input type="number" id="tin-deposit" placeholder="11177128"></div>
-        <div class="fg"><label>実家分</label><input type="number" id="tin-family" placeholder="400000"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:14px">
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px">
+          <div style="font-size:11px;color:var(--gold);font-weight:600;margin-bottom:10px">📌 楽天証券</div>
+          <div class="form-grid" style="grid-template-columns:1fr 1fr">
+            <div class="fg"><label>評価額</label><input type="number" id="tin-rakuten-trust" placeholder="5000000" oninput="calcTrustTotal()"></div>
+            <div class="fg"><label>評価損益</label><input type="number" id="tin-rakuten-gain" placeholder="500000" oninput="calcTrustTotal()"></div>
+          </div>
+        </div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px">
+          <div style="font-size:11px;color:var(--blue);font-weight:600;margin-bottom:10px">📌 SBI証券（住信含む）</div>
+          <div class="form-grid" style="grid-template-columns:1fr 1fr">
+            <div class="fg"><label>評価額</label><input type="number" id="tin-sbi-trust" placeholder="5000000" oninput="calcTrustTotal()"></div>
+            <div class="fg"><label>評価損益</label><input type="number" id="tin-sbi-gain" placeholder="500000" oninput="calcTrustTotal()"></div>
+          </div>
+        </div>
+      </div>
+      <div style="background:rgba(201,150,58,.06);border:1px solid rgba(201,150,58,.2);border-radius:8px;padding:12px;margin-top:12px;display:flex;gap:24px;flex-wrap:wrap">
+        <div><span style="font-size:10px;color:var(--muted)">合計評価額</span><div style="font-size:16px;font-weight:700;font-family:var(--mono);color:var(--gold)" id="tin-total-preview">—</div></div>
+        <div><span style="font-size:10px;color:var(--muted)">合計評価損益</span><div style="font-size:16px;font-weight:700;font-family:var(--mono)" id="tin-gain-preview">—</div></div>
+        <div><span style="font-size:10px;color:var(--muted)">資産合計（自動）</span><div style="font-size:16px;font-weight:700;font-family:var(--mono);color:var(--gold-lt)" id="tin-asset-preview">—</div></div>
+      </div>
+      <div class="form-grid" style="margin-top:14px">
+        <div class="fg"><label>預かり金 残高</label><input type="number" id="tin-deposit" placeholder="11177128" oninput="calcTrustTotal()"></div>
+        <div class="fg"><label>実家分</label><input type="number" id="tin-family" placeholder="400000" oninput="calcTrustTotal()"></div>
         <div class="fg"><label>積立（預かり分）J列</label><input type="number" id="tin-accumDep" placeholder="300000"></div>
         <div class="fg"><label>積立（給料）K列</label><input type="number" id="tin-accumSal" placeholder="40000"></div>
-        <div class="fg" style="display:flex;align-items:center;padding-top:20px">
-          <span style="font-size:11px;color:var(--muted)">資産合計 = 投資信託 ＋ 預かり金 − 実家分（自動計算）</span>
-        </div>
+        <div class="fg"><label>累積損益（省略可・自動計算）</label><input type="number" id="tin-gainCum" placeholder="自動計算"></div>
       </div>
       <div class="btn-row">
         <button class="btn-primary" onclick="addTrustRow()">追加</button>
@@ -524,6 +543,50 @@ tr:hover td{background:rgba(255,255,255,.02)}
   </div>
 </div>
 
+<!-- ========== その他金融資産 ========== -->
+<div id="section-other" class="section">
+  <div class="alert" id="otherAlert">更新しました</div>
+
+  <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr);max-width:700px" id="otherKpi"></div>
+
+  <div class="card">
+    <div class="card-head"><div class="card-title">📥 金融資産を追加・更新</div></div>
+    <div class="card-body">
+      <div class="form-grid">
+        <div class="fg"><label>資産名</label><input type="text" id="oth-name" placeholder="例: iDeCo、学資保険、国債"></div>
+        <div class="fg"><label>種別</label>
+          <select id="oth-type">
+            <option value="ideco">iDeCo</option>
+            <option value="insurance">保険</option>
+            <option value="bond">国債・社債</option>
+            <option value="pension">年金</option>
+            <option value="other">その他</option>
+          </select>
+        </div>
+        <div class="fg"><label>評価額（円）</label><input type="number" id="oth-amount" placeholder="1000000"></div>
+        <div class="fg"><label>基準日</label><input type="date" id="oth-date"></div>
+        <div class="fg" style="grid-column:span 2"><label>メモ</label><input type="text" id="oth-note" placeholder="例: SBI証券のiDeCo口座"></div>
+      </div>
+      <div class="btn-row">
+        <button class="btn-primary" onclick="addOther()">追加・更新</button>
+        <button class="btn-ghost" onclick="clearOther()">クリア</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><div class="card-title">保有資産一覧</div></div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr>
+          <th>資産名</th><th>種別</th><th class="num">評価額</th><th>基準日</th><th>メモ</th><th></th>
+        </tr></thead>
+        <tbody id="otherTbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
 </main>
 </div><!-- /#app -->
 
@@ -545,45 +608,45 @@ let accumSchedule   = [];
 // 初回ログイン時にFirestoreへ一括保存される
 // ============================
 const INITIAL_TRUST = [
-  { date:"2023-06-19", total:8214224, trust:10014224, gain:2009888, gainPct:0.2511, gainCum:null, gainCumPct:null, deposit:0, family:1800000, accumDep:null, accumSal:null },
-  { date:"2023-06-20", total:8367983, trust:4849278, gain:631094, gainPct:0.1496, gainCum:null, gainCumPct:null, deposit:5318705, family:1800000, accumDep:null, accumSal:null },
-  { date:"2023-07-01", total:8547688, trust:5128983, gain:730799, gainPct:0.1662, gainCum:null, gainCumPct:null, deposit:5218705, family:1800000, accumDep:100000, accumSal:80000 },
-  { date:"2023-08-01", total:8578530, trust:5259825, gain:681642, gainPct:0.1489, gainCum:null, gainCumPct:null, deposit:5118705, family:1800000, accumDep:100000, accumSal:80000 },
-  { date:"2023-09-01", total:8795137, trust:5576432, gain:818249, gainPct:0.1720, gainCum:null, gainCumPct:null, deposit:5018705, family:1800000, accumDep:100000, accumSal:80000 },
-  { date:"2023-10-01", total:8726928, trust:5608223, gain:670038, gainPct:0.1357, gainCum:null, gainCumPct:null, deposit:4918705, family:1800000, accumDep:100000, accumSal:80000 },
-  { date:"2023-11-09", total:8938825, trust:5920120, gain:801936, gainPct:0.1567, gainCum:null, gainCumPct:null, deposit:4818705, family:1800000, accumDep:100000, accumSal:80000 },
-  { date:"2023-11-22", total:8808350, trust:2482776, gain:170348, gainPct:0.0737, gainCum:2337946, gainCumPct:0.3613, deposit:9125574, family:2800000, accumDep:null, accumSal:null },
-  { date:"2023-12-01", total:8669519, trust:2503945, gain:162278, gainPct:0.0693, gainCum:2329876, gainCumPct:0.3675, deposit:8965574, family:2800000, accumDep:160000, accumSal:80000 },
-  { date:"2024-01-01", total:8985962, trust:3021703, gain:200037, gainPct:0.0709, gainCum:2367635, gainCumPct:0.3577, deposit:8764259, family:2800000, accumDep:160000, accumSal:80000 },
-  { date:"2024-02-01", total:9160198, trust:3355939, gain:294273, gainPct:0.0977, gainCum:2461870, gainCumPct:0.3703, deposit:8604259, family:2800000, accumDep:160000, accumSal:30000 },
-  { date:"2024-03-01", total:9351590, trust:3707331, gain:435664, gainPct:0.1332, gainCum:2603262, gainCumPct:0.3858, deposit:8444259, family:2800000, accumDep:160000, accumSal:30000 },
-  { date:"2024-04-01", total:9680826, trust:4196567, gain:584898, gainPct:0.1671, gainCum:2745964, gainCumPct:0.4051, deposit:8284259, family:2800000, accumDep:160000, accumSal:30000 },
-  { date:"2024-05-01", total:9834538, trust:4510279, gain:658610, gainPct:0.1773, gainCum:2815202, gainCumPct:0.4135, deposit:8124259, family:2800000, accumDep:160000, accumSal:30000 },
-  { date:"2024-06-01", total:9951231, trust:4786972, gain:695304, gainPct:0.1775, gainCum:2849674, gainCumPct:0.4167, deposit:7064259, family:1900000, accumDep:160000, accumSal:30000 },
-  { date:"2024-07-01", total:10208218, trust:3223915, gain:495788, gainPct:0.1913, gainCum:3026646, gainCumPct:0.4418, deposit:8884303, family:1900000, accumDep:160000, accumSal:30000 },
-  { date:"2024-08-01", total:10160182, trust:2402788, gain:130091, gainPct:0.0654, gainCum:2873556, gainCumPct:0.4145, deposit:8857394, family:1100000, accumDep:160000, accumSal:30000 },
-  { date:"2024-09-01", total:9574330, trust:2676936, gain:114246, gainPct:0.0529, gainCum:2859468, gainCumPct:0.4566, deposit:7997394, family:1100000, accumDep:160000, accumSal:30000 },
-  { date:"2024-10-01", total:9814321, trust:3076927, gain:224239, gainPct:0.0882, gainCum:2950747, gainCumPct:0.4689, deposit:7737394, family:1000000, accumDep:160000, accumSal:30000 },
-  { date:"2024-11-01", total:9938524, trust:3366941, gain:324254, gainPct:0.1147, gainCum:3033755, gainCumPct:0.4803, deposit:7570892, family:1000000, accumDep:160000, accumSal:30000 },
-  { date:"2024-12-01", total:10263823, trust:3850011, gain:417299, gainPct:0.1360, gainCum:3112550, gainCumPct:0.4903, deposit:7403812, family:990000, accumDep:160000, accumSal:30000 },
-  { date:"2025-01-01", total:10495743, trust:3243123, gain:340432, gainPct:0.1291, gainCum:3224401, gainCumPct:0.5081, deposit:8242620, family:990000, accumDep:160000, accumSal:30000 },
-  { date:"2025-02-01", total:10594518, trust:3501898, gain:309188, gainPct:0.1083, gainCum:3202124, gainCumPct:0.5022, deposit:8082620, family:990000, accumDep:160000, accumSal:30000 },
-  { date:"2025-03-01", total:10673316, trust:4540696, gain:57993, gainPct:0.0125, gainCum:3002302, gainCumPct:0.4545, deposit:6922620, family:790000, accumDep:160000, accumSal:30000 },
-  { date:"2025-04-01", total:10180181, trust:4411761, gain:-360934, gainPct:-0.0707, gainCum:2703067, gainCumPct:0.4203, deposit:6558420, family:790000, accumDep:160000, accumSal:30000 },
-  { date:"2025-05-01", total:10762569, trust:5154149, gain:91428, gainPct:0.0227, gainCum:3045758, gainCumPct:0.4714, deposit:6398420, family:790000, accumDep:160000, accumSal:30000 },
-  { date:"2025-06-01", total:11027027, trust:5604103, gain:251408, gainPct:0.0520, gainCum:3167580, gainCumPct:0.4899, deposit:5822924, family:400000, accumDep:160000, accumSal:30000 },
-  { date:"2025-07-01", total:11283773, trust:6049325, gain:506629, gainPct:0.0956, gainCum:3360341, gainCumPct:0.5196, deposit:5634448, family:400000, accumDep:160000, accumSal:30000 },
-  { date:"2025-08-01", total:11411890, trust:6356517, gain:713794, gainPct:0.1366, gainCum:3518337, gainCumPct:0.5685, deposit:5455373, family:400000, accumDep:160000, accumSal:40000 },
-  { date:"2025-09-01", total:11947884, trust:7052511, gain:909789, gainPct:0.1533, gainCum:3663311, gainCumPct:0.5611, deposit:5295373, family:400000, accumDep:160000, accumSal:40000 },
-  { date:"2025-10-01", total:12379126, trust:7643753, gain:1201016, gainPct:0.1925, gainCum:3881714, gainCumPct:0.5909, deposit:5135373, family:400000, accumDep:160000, accumSal:40000 },
-  { date:"2025-11-01", total:16565344, trust:8985051, gain:922366, gainPct:0.1144, gainCum:3881714, gainCumPct:0.3060, deposit:7980293, family:400000, accumDep:220000, accumSal:40000 },
-  { date:"2025-12-01", total:19620736, trust:7335833, gain:585793, gainPct:0.0334, gainCum:4426971, gainCumPct:0.3426, deposit:12684903, family:400000, accumDep:300000, accumSal:40000 },
-  { date:"2026-01-01", total:20127455, trust:8142552, gain:852553, gainPct:0.0659, gainCum:4608431, gainCumPct:0.3555, deposit:12384903, family:400000, accumDep:300000, accumSal:40000 },
-  { date:"2026-02-01", total:19749847, trust:8564944, gain:934944, gainPct:0.0719, gainCum:4664557, gainCumPct:0.3731, deposit:11584903, family:400000, accumDep:300000, accumSal:40000 },
-  { date:"2026-03-01", total:20012455, trust:9127552, gain:1057494, gainPct:0.0819, gainCum:4747778, gainCumPct:0.3786, deposit:11284903, family:400000, accumDep:300000, accumSal:40000 },
-  { date:"2026-04-01", total:19780101, trust:9195198, gain:685188, gainPct:0.0360, gainCum:4488689, gainCumPct:0.3568, deposit:10984903, family:400000, accumDep:300000, accumSal:40000 },
-  { date:"2026-05-01", total:20918283, trust:10633380, gain:1583307, gainPct:0.1297, gainCum:5119245, gainCumPct:0.4056, deposit:10684903, family:400000, accumDep:300000, accumSal:40000 },
-  { date:"2026-06-01", total:21410257, trust:10633129, gain:1863606, gainPct:0.1743, gainCum:5472823, gainCumPct:0.4068, deposit:11177128, family:400000, accumDep:300000, accumSal:40000 },
+  { date:"2023-06-19", total:8214224, trust:10014224, gain:2009888, gainPct:0.2511, gainCum:null, gainCumPct:null, deposit:0, family:1800000, accumDep:null, accumSal:null, rakutenTrust:10014224, rakutenGain:2009888, sbiTrust:0, sbiGain:0 },
+  { date:"2023-06-20", total:8367983, trust:4849278, gain:631094, gainPct:0.1496, gainCum:null, gainCumPct:null, deposit:5318705, family:1800000, accumDep:null, accumSal:null, rakutenTrust:4849278, rakutenGain:631094, sbiTrust:0, sbiGain:0 },
+  { date:"2023-07-01", total:8547688, trust:5128983, gain:730799, gainPct:0.1662, gainCum:null, gainCumPct:null, deposit:5218705, family:1800000, accumDep:100000, accumSal:80000, rakutenTrust:5128983, rakutenGain:730799, sbiTrust:0, sbiGain:0 },
+  { date:"2023-08-01", total:8578530, trust:5259825, gain:681642, gainPct:0.1489, gainCum:null, gainCumPct:null, deposit:5118705, family:1800000, accumDep:100000, accumSal:80000, rakutenTrust:5259825, rakutenGain:681642, sbiTrust:0, sbiGain:0 },
+  { date:"2023-09-01", total:8795137, trust:5576432, gain:818249, gainPct:0.172, gainCum:null, gainCumPct:null, deposit:5018705, family:1800000, accumDep:100000, accumSal:80000, rakutenTrust:5576432, rakutenGain:818249, sbiTrust:0, sbiGain:0 },
+  { date:"2023-10-01", total:8726928, trust:5608223, gain:670038, gainPct:0.1357, gainCum:null, gainCumPct:null, deposit:4918705, family:1800000, accumDep:100000, accumSal:80000, rakutenTrust:5608223, rakutenGain:670038, sbiTrust:0, sbiGain:0 },
+  { date:"2023-11-09", total:8938825, trust:5920120, gain:801936, gainPct:0.1567, gainCum:null, gainCumPct:null, deposit:4818705, family:1800000, accumDep:100000, accumSal:80000, rakutenTrust:5920120, rakutenGain:801936, sbiTrust:0, sbiGain:0 },
+  { date:"2023-11-22", total:8808350, trust:2482776, gain:170348, gainPct:0.0737, gainCum:2337946, gainCumPct:0.3613, deposit:9125574, family:2800000, accumDep:null, accumSal:null, rakutenTrust:2482776, rakutenGain:170348, sbiTrust:0, sbiGain:0 },
+  { date:"2023-12-01", total:8669519, trust:2503945, gain:162278, gainPct:0.0693, gainCum:2329876, gainCumPct:0.3675, deposit:8965574, family:2800000, accumDep:160000, accumSal:80000, rakutenTrust:2503945, rakutenGain:162278, sbiTrust:0, sbiGain:0 },
+  { date:"2024-01-01", total:8985962, trust:3021703, gain:200037, gainPct:0.0709, gainCum:2367635, gainCumPct:0.3577, deposit:8764259, family:2800000, accumDep:160000, accumSal:80000, rakutenTrust:3021703, rakutenGain:200037, sbiTrust:0, sbiGain:0 },
+  { date:"2024-02-01", total:9160198, trust:3355939, gain:294273, gainPct:0.0961, gainCum:2461870, gainCumPct:0.3703, deposit:8604259, family:2800000, accumDep:160000, accumSal:30000, rakutenTrust:3305939, rakutenGain:294272, sbiTrust:50000, sbiGain:1 },
+  { date:"2024-03-01", total:9351590, trust:3707331, gain:435664, gainPct:0.1332, gainCum:2603262, gainCumPct:0.3858, deposit:8444259, family:2800000, accumDep:160000, accumSal:30000, rakutenTrust:3707331, rakutenGain:435664, sbiTrust:0, sbiGain:0 },
+  { date:"2024-04-01", total:9680826, trust:4196567, gain:584898, gainPct:0.1619, gainCum:2745964, gainCumPct:0.4051, deposit:8284259, family:2800000, accumDep:160000, accumSal:30000, rakutenTrust:4040032, rakutenGain:578366, sbiTrust:156535, sbiGain:6532 },
+  { date:"2024-05-01", total:9834538, trust:4510279, gain:658610, gainPct:0.171, gainCum:2815202, gainCumPct:0.4135, deposit:8124259, family:2800000, accumDep:160000, accumSal:30000, rakutenTrust:4299269, rakutenGain:647604, sbiTrust:211010, sbiGain:11006 },
+  { date:"2024-06-01", total:9951231, trust:4786972, gain:695304, gainPct:0.1699, gainCum:2849674, gainCumPct:0.4167, deposit:7064259, family:1900000, accumDep:160000, accumSal:30000, rakutenTrust:4523742, rakutenGain:682076, sbiTrust:263230, sbiGain:13228 },
+  { date:"2024-07-01", total:10208218, trust:3223915, gain:495788, gainPct:0.1817, gainCum:3026646, gainCumPct:0.4418, deposit:8884303, family:1900000, accumDep:160000, accumSal:30000, rakutenTrust:2892526, rakutenGain:464407, sbiTrust:331389, sbiGain:31381 },
+  { date:"2024-08-01", total:10160182, trust:2402788, gain:130091, gainPct:0.0572, gainCum:2873556, gainCumPct:0.4145, deposit:8857394, family:1100000, accumDep:160000, accumSal:30000, rakutenTrust:2048491, rakutenGain:125807, sbiTrust:354297, sbiGain:4284 },
+  { date:"2024-09-01", total:9574330, trust:2676936, gain:114246, gainPct:0.0446, gainCum:2859468, gainCumPct:0.4566, deposit:7997394, family:1100000, accumDep:160000, accumSal:30000, rakutenTrust:2224404, rakutenGain:111719, sbiTrust:452532, sbiGain:2527 },
+  { date:"2024-10-01", total:9814321, trust:3076927, gain:224239, gainPct:0.0786, gainCum:2950747, gainCumPct:0.4689, deposit:7737394, family:1000000, accumDep:160000, accumSal:30000, rakutenTrust:2505683, rakutenGain:202998, sbiTrust:571244, sbiGain:21241 },
+  { date:"2024-11-01", total:9938524, trust:3366941, gain:324254, gainPct:0.1066, gainCum:3033755, gainCumPct:0.4803, deposit:7570892, family:1000000, accumDep:160000, accumSal:30000, rakutenTrust:2778691, rakutenGain:286006, sbiTrust:588250, sbiGain:38248 },
+  { date:"2024-12-01", total:10263823, trust:3850011, gain:417299, gainPct:0.1216, gainCum:3112550, gainCumPct:0.4903, deposit:7403812, family:990000, accumDep:160000, accumSal:30000, rakutenTrust:3047486, rakutenGain:364801, sbiTrust:802525, sbiGain:52498 },
+  { date:"2025-01-01", total:10495743, trust:3243123, gain:340432, gainPct:0.1173, gainCum:3224401, gainCumPct:0.5081, deposit:8242620, family:990000, accumDep:160000, accumSal:30000, rakutenTrust:2317738, rakutenGain:265053, sbiTrust:925385, sbiGain:75379 },
+  { date:"2025-02-01", total:10594518, trust:3501898, gain:309188, gainPct:0.0968, gainCum:3202124, gainCumPct:0.5022, deposit:8082620, family:990000, accumDep:160000, accumSal:30000, rakutenTrust:2485461, rakutenGain:242776, sbiTrust:1016437, sbiGain:66412 },
+  { date:"2025-03-01", total:10673316, trust:4540696, gain:57993, gainPct:0.0129, gainCum:3002302, gainCumPct:0.4545, deposit:6922620, family:790000, accumDep:160000, accumSal:30000, rakutenTrust:3475639, rakutenGain:42954, sbiTrust:1065057, sbiGain:15039 },
+  { date:"2025-04-01", total:10180181, trust:4411761, gain:-360934, gainPct:-0.0756, gainCum:2703067, gainCumPct:0.4203, deposit:6558420, family:790000, accumDep:160000, accumSal:30000, rakutenTrust:3366404, rakutenGain:-256281, sbiTrust:1045357, sbiGain:-104653 },
+  { date:"2025-05-01", total:10762569, trust:5154149, gain:91428, gainPct:0.0181, gainCum:3045758, gainCumPct:0.4714, deposit:6398420, family:790000, accumDep:160000, accumSal:30000, rakutenTrust:3899095, rakutenGain:86410, sbiTrust:1255054, sbiGain:5018 },
+  { date:"2025-06-01", total:11027027, trust:5604103, gain:251408, gainPct:0.047, gainCum:3167580, gainCumPct:0.4899, deposit:5822924, family:400000, accumDep:160000, accumSal:30000, rakutenTrust:4210917, rakutenGain:208232, sbiTrust:1393186, sbiGain:43176 },
+  { date:"2025-07-01", total:11283773, trust:6049325, gain:506629, gainPct:0.0914, gainCum:3360341, gainCumPct:0.5196, deposit:5634448, family:400000, accumDep:160000, accumSal:30000, rakutenTrust:4593679, rakutenGain:400993, sbiTrust:1455646, sbiGain:105636 },
+  { date:"2025-08-01", total:11411890, trust:6356517, gain:713794, gainPct:0.1265, gainCum:3518337, gainCumPct:0.5685, deposit:5455373, family:400000, accumDep:160000, accumSal:40000, rakutenTrust:4651674, rakutenGain:558989, sbiTrust:1704843, sbiGain:154805 },
+  { date:"2025-09-01", total:11947884, trust:7052511, gain:909789, gainPct:0.1481, gainCum:3663311, gainCumPct:0.5611, deposit:5295373, family:400000, accumDep:160000, accumSal:40000, rakutenTrust:5296647, rakutenGain:703963, sbiTrust:1755864, sbiGain:205826 },
+  { date:"2025-10-01", total:12379126, trust:7643753, gain:1201016, gainPct:0.1864, gainCum:3881714, gainCumPct:0.5909, deposit:5135373, family:400000, accumDep:160000, accumSal:40000, rakutenTrust:5715051, rakutenGain:922366, sbiTrust:1928702, sbiGain:278650 },
+  { date:"2025-11-01", total:16565344, trust:8985051, gain:922366, gainPct:0.1144, gainCum:3881714, gainCumPct:0.306, deposit:7980293, family:400000, accumDep:220000, accumSal:40000, rakutenTrust:8985051, rakutenGain:922366, sbiTrust:0, sbiGain:0 },
+  { date:"2025-12-01", total:19620736, trust:7335833, gain:585793, gainPct:0.0868, gainCum:4426971, gainCumPct:0.3426, deposit:12684903, family:400000, accumDep:300000, accumSal:40000, rakutenTrust:5063849, rakutenGain:163849, sbiTrust:2271984, sbiGain:421944 },
+  { date:"2026-01-01", total:20127455, trust:8142552, gain:852553, gainPct:0.1169, gainCum:4608431, gainCumPct:0.3555, deposit:12384903, family:400000, accumDep:300000, accumSal:40000, rakutenTrust:5585308, rakutenGain:345309, sbiTrust:2557244, sbiGain:507244 },
+  { date:"2026-02-01", total:19749847, trust:8564944, gain:934944, gainPct:0.1225, gainCum:4664557, gainCumPct:0.3731, deposit:11584903, family:400000, accumDep:300000, accumSal:40000, rakutenTrust:5981435, rakutenGain:401435, sbiTrust:2583509, sbiGain:533509 },
+  { date:"2026-03-01", total:20012455, trust:9127552, gain:1057494, gainPct:0.131, gainCum:4747778, gainCumPct:0.3786, deposit:11284903, family:400000, accumDep:300000, accumSal:40000, rakutenTrust:6404657, rakutenGain:484656, sbiTrust:2722895, sbiGain:572838 },
+  { date:"2026-04-01", total:19780101, trust:9195198, gain:685188, gainPct:0.0805, gainCum:4488689, gainCumPct:0.3568, deposit:10984903, family:400000, accumDep:300000, accumSal:40000, rakutenTrust:6485568, rakutenGain:225567, sbiTrust:2709630, sbiGain:459621 },
+  { date:"2026-05-01", total:20918283, trust:10633380, gain:1583307, gainPct:0.1749, gainCum:5119245, gainCumPct:0.4056, deposit:10684903, family:400000, accumDep:300000, accumSal:40000, rakutenTrust:7456123, rakutenGain:856123, sbiTrust:3177257, sbiGain:727184 },
+  { date:"2026-06-01", total:21410257, trust:10633129, gain:1863606, gainPct:0.2125, gainCum:5472823, gainCumPct:0.4068, deposit:11177128, family:400000, accumDep:300000, accumSal:40000, rakutenTrust:8149702, rakutenGain:1209701, sbiTrust:2483427, sbiGain:653905 },
 ];
 const INITIAL_SAVINGS = [
   { date:"2021-08-10", ribon:1850000, furikae:674516, total:2524516 },
@@ -630,10 +693,11 @@ const INITIAL_RIBON = [
 // ============================
 window._initApp = async () => {
   // Firestoreから読み込み
-  const [trust, savings, ribon, settings] = await Promise.all([
+  const [trust, savings, ribon, other, settings] = await Promise.all([
     window._db.loadAll('trustData'),
     window._db.loadAll('savingsData'),
     window._db.loadAll('ribonData'),
+    window._db.loadAll('otherAssets'),
     window._db.loadSettings(),
   ]);
 
@@ -652,7 +716,7 @@ window._initApp = async () => {
     savingsData = savings.sort((a,b)=>a.date.localeCompare(b.date));
     ribonData   = ribon.sort((a,b)=>a.no-b.no);
   }
-
+  otherAssets = other || [];
   depositEvents = settings.depositEvents || [];
   accumSchedule = settings.accumSchedule || [];
 
@@ -735,6 +799,7 @@ function nav(id,btn){
   if(id==='trust') renderTrust();
   if(id==='savings') renderSavings();
   if(id==='ribon') renderRibon();
+  if(id==='other') renderOther();
 }
 function showAlert(id){ const el=document.getElementById(id); el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),2500); }
 function tglSet(cid,el){ document.querySelectorAll('#'+cid+' .tgl').forEach(e=>e.classList.remove('on')); el.classList.add('on'); }
@@ -746,7 +811,8 @@ function nv(id){ const s=v(id); return s===''?null:+s; }
 // サマリー
 // ============================
 function renderSummary(){
-  const rows=allRows(), actual=rows.filter(isActual);
+  const rows=allRows();
+  const actual=rows.filter(isActual).sort((a,b)=>a.date.localeCompare(b.date));
   const latest=actual[actual.length-1], prev=actual[actual.length-2];
   const latSav=[...savingsData].sort((a,b)=>b.date.localeCompare(a.date))[0];
   const ribUnd=ribonData.filter(r=>r.status==='undecided');
@@ -814,14 +880,44 @@ function renderTrust(){
 function setTrustRange(n,el){ trustRangeN=n; tglSet('tTglRange',el); renderTrust(); }
 function setTrustFilter(m){ trustFilterMode=m; renderTrust(); }
 
+// リアルタイムプレビュー
+function calcTrustTotal(){
+  const rt=+document.getElementById('tin-rakuten-trust').value||0;
+  const st=+document.getElementById('tin-sbi-trust').value||0;
+  const rg=+document.getElementById('tin-rakuten-gain').value||0;
+  const sg=+document.getElementById('tin-sbi-gain').value||0;
+  const dep=+document.getElementById('tin-deposit').value||0;
+  const fam=+document.getElementById('tin-family').value||0;
+  const trust=rt+st, gain=rg+sg, total=trust+dep-fam;
+  const yen=v=>v?'¥'+v.toLocaleString():'—';
+  document.getElementById('tin-total-preview').textContent=trust?yen(trust):'—';
+  document.getElementById('tin-gain-preview').textContent=gain?(gain>=0?'+':'')+yen(gain):'—';
+  document.getElementById('tin-gain-preview').className='';
+  document.getElementById('tin-gain-preview').style.color=gain>=0?'var(--green)':'var(--red)';
+  document.getElementById('tin-asset-preview').textContent=trust&&dep?yen(total):'—';
+}
+
 async function addTrustRow(){
-  const d=v('tin-date'),tr=nv('tin-trust'),gain=nv('tin-gain'),
-        gainCum=nv('tin-gainCum'),dep=nv('tin-deposit'),fam=nv('tin-family'),
-        accumDep=nv('tin-accumDep'),accumSal=nv('tin-accumSal');
-  if(!d||tr===null||dep===null){ alert('日付・投資信託・預かり金は必須'); return; }
-  const tot = (tr||0) + (dep||0) - (fam||0);
-  const gainPct=tr&&gain!=null&&(tr-gain)>0?gain/(tr-gain):null;
-  const row={date:d,total:tot,trust:tr,gain,gainPct,gainCum,gainCumPct:null,deposit:dep,family:fam,accumDep,accumSal};
+  const d=v('tin-date');
+  const rt=nv('tin-rakuten-trust'), rg=nv('tin-rakuten-gain');
+  const st=nv('tin-sbi-trust'),     sg=nv('tin-sbi-gain');
+  const dep=nv('tin-deposit'), fam=nv('tin-family');
+  const accumDep=nv('tin-accumDep'), accumSal=nv('tin-accumSal');
+  if(!d||rt===null||dep===null){ alert('日付・楽天評価額・預かり金は必須'); return; }
+  const tr   = (rt||0)+(st||0);
+  const gain = (rg||0)+(sg||0);
+  const tot  = tr + (dep||0) - (fam||0);
+  // 累積損益：手入力があればそれを使い、なければ前月からの差分を加算
+  const sorted = [...trustData].filter(isActual).sort((a,b)=>a.date.localeCompare(b.date));
+  const prevRow = sorted[sorted.length-1];
+  const manualCum = nv('tin-gainCum');
+  const gainCum = manualCum !== null ? manualCum
+    : prevRow && prevRow.gainCum != null ? prevRow.gainCum + gain - (prevRow.gain||0)
+    : gain;
+  const gainPct = tr&&gain!=null&&(tr-gain)>0 ? gain/(tr-gain) : null;
+  const row={date:d, total:tot, trust:tr, gain, gainPct, gainCum, gainCumPct:null,
+    deposit:dep, family:fam, accumDep, accumSal,
+    rakutenTrust:rt, rakutenGain:rg, sbiTrust:st, sbiGain:sg};
   const id=await window._db.addOne('trustData',row,d);
   trustData.push({...row,_id:id});
   trustData.sort((a,b)=>a.date.localeCompare(b.date));
@@ -832,7 +928,7 @@ async function deleteTrust(id){
   trustData=trustData.filter(r=>r._id!==id);
   renderTrust(); renderSummaryIfActive();
 }
-function clearTrust(){ ['tin-date','tin-trust','tin-gain','tin-gainCum','tin-deposit','tin-family','tin-accumDep','tin-accumSal'].forEach(id=>document.getElementById(id).value=''); }
+function clearTrust(){ ['tin-date','tin-rakuten-trust','tin-rakuten-gain','tin-sbi-trust','tin-sbi-gain','tin-deposit','tin-family','tin-accumDep','tin-accumSal','tin-gainCum'].forEach(id=>document.getElementById(id).value=''); calcTrustTotal(); }
 
 async function applyDepositEvent(){
   const mo=v('dep-month'),addVal=+v('dep-newval'),memo=v('dep-memo');
@@ -855,6 +951,64 @@ async function applyAccumChange(){
   renderTrust(); renderSummaryIfActive(); showAlert('trustAlert');
   ['acc-month','acc-dep','acc-sal'].forEach(id=>document.getElementById(id).value='');
 }
+
+let otherAssets = [];
+
+// ============================
+// その他金融資産
+// ============================
+const otherTypeLabel = { ideco:'iDeCo', insurance:'保険', bond:'国債・社債', pension:'年金', other:'その他' };
+const otherTypeColor = { ideco:'var(--gold)', insurance:'var(--green)', bond:'var(--blue)', pension:'var(--purple)', other:'var(--muted)' };
+
+function renderOther(){
+  const total = otherAssets.reduce((s,r)=>s+r.amount,0);
+  const byType = {};
+  otherAssets.forEach(r=>{ byType[r.type]=(byType[r.type]||0)+r.amount; });
+  document.getElementById('otherKpi').innerHTML = `
+    <div class="kpi"><div class="kpi-label">その他資産 合計</div><div class="kpi-val">${yen(total)}</div></div>
+    <div class="kpi"><div class="kpi-label">保有件数</div><div class="kpi-val">${otherAssets.length}件</div></div>
+    <div class="kpi"><div class="kpi-label">最大</div><div class="kpi-val">${yen(otherAssets.length?Math.max(...otherAssets.map(r=>r.amount)):0)}</div></div>
+  `;
+  const maxA = otherAssets.length ? Math.max(...otherAssets.map(r=>r.amount)) : 1;
+  document.getElementById('otherTbody').innerHTML = [...otherAssets].sort((a,b)=>b.amount-a.amount).map(r=>{
+    const bw = Math.round(r.amount/maxA*80);
+    return `<tr>
+      <td style="font-weight:600">${r.name}</td>
+      <td><span class="tag" style="background:rgba(255,255,255,.05);color:${otherTypeColor[r.type]}">${otherTypeLabel[r.type]}</span></td>
+      <td class="num">
+        <div style="display:flex;align-items:center;gap:6px;justify-content:flex-end">
+          <span>${yen(r.amount)}</span>
+          <div style="height:4px;width:${bw}px;border-radius:2px;background:var(--gold);opacity:.4"></div>
+        </div>
+      </td>
+      <td style="color:var(--muted);font-size:11px">${r.date||'—'}</td>
+      <td style="color:var(--muted);font-size:11px">${r.note||'—'}</td>
+      <td><button class="btn-sm" onclick="deleteOther('${r._id}')">削除</button></td>
+    </tr>`;
+  }).join('');
+}
+async function addOther(){
+  const name=v('oth-name'), type=v('oth-type'), amount=nv('oth-amount'), date=v('oth-date'), note=v('oth-note');
+  if(!name||amount===null){ alert('資産名と評価額は必須'); return; }
+  // 同名の資産は上書き更新
+  const existing = otherAssets.find(r=>r.name===name);
+  if(existing){
+    const updated = {...existing, type, amount, date, note};
+    await window._db.updateOne('otherAssets', existing._id, {type,amount,date,note});
+    Object.assign(existing, updated);
+  } else {
+    const row = {name, type, amount, date, note};
+    const id = await window._db.addOne('otherAssets', row, name.replace(/\s/g,'_'));
+    otherAssets.push({...row, _id:id});
+  }
+  clearOther(); renderOther(); renderSummaryIfActive(); showAlert('otherAlert');
+}
+async function deleteOther(id){
+  await window._db.deleteOne('otherAssets', id);
+  otherAssets = otherAssets.filter(r=>r._id!==id);
+  renderOther(); renderSummaryIfActive();
+}
+function clearOther(){ ['oth-name','oth-amount','oth-date','oth-note'].forEach(id=>document.getElementById(id).value=''); }
 
 // ============================
 // 貯金額
