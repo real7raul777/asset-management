@@ -365,7 +365,14 @@ tr:hover td{background:rgba(255,255,255,.02)}
         <div class="fg"><label>実家分</label><input type="number" id="tin-family" placeholder="400000" oninput="calcTrustTotal()"></div>
         <div class="fg"><label>積立（預かり分）J列</label><input type="number" id="tin-accumDep" placeholder="300000"></div>
         <div class="fg"><label>積立（給料）K列</label><input type="number" id="tin-accumSal" placeholder="40000"></div>
-        <div class="fg"><label>累積損益（省略可・自動計算）</label><input type="number" id="tin-gainCum" placeholder="自動計算"></div>
+        <div class="fg">
+          <label>💰 今月の利益確定額（手動）</label>
+          <input type="number" id="tin-realizedGain" placeholder="例: 790000（解約していなければ空欄）" oninput="calcTrustTotal()">
+        </div>
+      </div>
+      <div style="background:rgba(201,150,58,.06);border:1px solid rgba(201,150,58,.2);border-radius:8px;padding:12px;margin-top:12px">
+        <div style="font-size:10px;color:var(--muted);margin-bottom:4px">累積利益確定額（自動計算：前月の累積 ＋ 今月の評価損益 ＋ 今月の利益確定額）</div>
+        <div style="font-size:18px;font-weight:700;font-family:var(--mono);color:var(--gold-lt)" id="tin-gainCum-preview">—</div>
       </div>
       <div class="btn-row">
         <button class="btn-primary" onclick="addTrustRow()">追加</button>
@@ -447,6 +454,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
           <th></th><th>日付</th>
           <th class="num">資産合計</th><th class="num">投資信託</th>
           <th class="num">評価損益</th><th class="num">損益率</th>
+          <th class="num">利益確定額</th><th class="num">累積利益確定</th>
           <th class="num">預かり金</th><th class="num">実家分</th>
           <th class="num">積立_預かり</th><th class="num">積立_給料</th>
           <th class="num">月積立合計</th><th></th>
@@ -647,7 +655,7 @@ const INITIAL_TRUST = [
   { date:"2026-03-01", total:20012455, trust:9127552, gain:1057494, gainPct:0.131, gainCum:4747778, gainCumPct:0.3786, deposit:11284903, family:400000, accumDep:300000, accumSal:40000, rakutenTrust:6404657, rakutenGain:484656, sbiTrust:2722895, sbiGain:572838 },
   { date:"2026-04-01", total:19780101, trust:9195198, gain:685188, gainPct:0.0805, gainCum:4488689, gainCumPct:0.3568, deposit:10984903, family:400000, accumDep:300000, accumSal:40000, rakutenTrust:6485568, rakutenGain:225567, sbiTrust:2709630, sbiGain:459621 },
   { date:"2026-05-01", total:20918283, trust:10633380, gain:1583307, gainPct:0.1749, gainCum:5119245, gainCumPct:0.4056, deposit:10684903, family:400000, accumDep:300000, accumSal:40000, rakutenTrust:7456123, rakutenGain:856123, sbiTrust:3177257, sbiGain:727184 },
-  { date:"2026-06-01", total:21410257, trust:10633129, gain:1863606, gainPct:0.2125, gainCum:5472823, gainCumPct:0.4068, deposit:11177128, family:400000, accumDep:300000, accumSal:40000, rakutenTrust:8149702, rakutenGain:1209701, sbiTrust:2483427, sbiGain:653905 },
+  { date:"2026-06-01", total:21410257, trust:10633129, gain:1863606, gainPct:0.2125, gainCum:6299082, gainCumPct:0.4068, deposit:11177128, family:400000, accumDep:300000, accumSal:40000, rakutenTrust:8149702, rakutenGain:1209701, sbiTrust:2483427, sbiGain:653905 },
 ];
 const INITIAL_SAVINGS = [
   { date:"2021-08-10", ribon:1850000, furikae:674516, total:2524516 },
@@ -918,6 +926,8 @@ function renderTrust(){
       <td class="num">${r.trust!=null?yen(r.trust):'—'}</td>
       <td class="num ${r.gain==null?'':r.gain>=0?'pos':'neg'}">${r.gain!=null?`<div style="display:flex;align-items:center;gap:4px;justify-content:flex-end"><span>${r.gain>=0?'+':''}${yen(r.gain)}</span><div style="height:4px;width:${barW}px;border-radius:2px;background:${(r.gain||0)>=0?'var(--green)':'var(--red)'}"></div></div>`:'—'}</td>
       <td class="num ${r.gainPct==null?'':r.gainPct>=0?'pos':'neg'}">${r.gainPct!=null?pct(r.gainPct):'—'}</td>
+      <td class="num" style="color:var(--gold)">${r.realizedGain?'+'+yen(r.realizedGain):'—'}</td>
+      <td class="num" style="color:var(--gold-lt);font-weight:600">${r.gainCum!=null?yen(r.gainCum):'—'}</td>
       <td class="num ${r.deposit<0?'neg':''}">${yen(r.deposit)}</td>
       <td class="num" style="color:var(--muted)">${yen(r.family)}</td>
       <td class="num" style="color:var(--blue)">${yen(r.accumDep)}</td>
@@ -938,6 +948,7 @@ function calcTrustTotal(){
   const sg=+document.getElementById('tin-sbi-gain').value||0;
   const dep=+document.getElementById('tin-deposit').value||0;
   const fam=+document.getElementById('tin-family').value||0;
+  const realized=+document.getElementById('tin-realizedGain').value||0;
   const trust=rt+st, gain=rg+sg, total=trust+dep-fam;
   const yen=v=>v?'¥'+v.toLocaleString():'—';
   document.getElementById('tin-total-preview').textContent=trust?yen(trust):'—';
@@ -945,6 +956,13 @@ function calcTrustTotal(){
   document.getElementById('tin-gain-preview').className='';
   document.getElementById('tin-gain-preview').style.color=gain>=0?'var(--green)':'var(--red)';
   document.getElementById('tin-asset-preview').textContent=trust&&dep?yen(total):'—';
+  // 累積利益確定額プレビュー
+  const sortedActual=[...trustData].filter(isActual).sort((a,b)=>a.date.localeCompare(b.date));
+  const prevRow=sortedActual[sortedActual.length-1];
+  const prevCum=prevRow&&prevRow.gainCum!=null?prevRow.gainCum:0;
+  const newCum=prevCum+gain+realized;
+  const cumEl=document.getElementById('tin-gainCum-preview');
+  cumEl.textContent = (gain||realized) ? yen(newCum) : (prevCum?yen(prevCum)+'（変化なし）':'—');
 }
 
 async function addTrustRow(){
@@ -953,21 +971,20 @@ async function addTrustRow(){
   const st=nv('tin-sbi-trust'),     sg=nv('tin-sbi-gain');
   const dep=nv('tin-deposit'), fam=nv('tin-family');
   const accumDep=nv('tin-accumDep'), accumSal=nv('tin-accumSal');
+  const realizedGain=nv('tin-realizedGain');
   if(!d||rt===null||dep===null){ alert('日付・楽天評価額・預かり金は必須'); return; }
   const tr   = (rt||0)+(st||0);
   const gain = (rg||0)+(sg||0);
   const tot  = tr + (dep||0) - (fam||0);
-  // 累積損益：手入力があればそれを使い、なければ前月からの差分を加算
+  // 累積利益確定額 = 前月の累積 ＋ 今月の評価損益 ＋ 今月の利益確定額（手動）
   const sorted = [...trustData].filter(isActual).sort((a,b)=>a.date.localeCompare(b.date));
   const prevRow = sorted[sorted.length-1];
-  const manualCum = nv('tin-gainCum');
-  const gainCum = manualCum !== null ? manualCum
-    : prevRow && prevRow.gainCum != null ? prevRow.gainCum + gain - (prevRow.gain||0)
-    : gain;
+  const prevCum = prevRow && prevRow.gainCum != null ? prevRow.gainCum : 0;
+  const gainCum = prevCum + gain + (realizedGain||0);
   const gainPct = tr&&gain!=null&&(tr-gain)>0 ? gain/(tr-gain) : null;
   const row={date:d, total:tot, trust:tr, gain, gainPct, gainCum, gainCumPct:null,
     deposit:dep, family:fam, accumDep, accumSal,
-    rakutenTrust:rt, rakutenGain:rg, sbiTrust:st, sbiGain:sg};
+    rakutenTrust:rt, rakutenGain:rg, sbiTrust:st, sbiGain:sg, realizedGain:realizedGain||0};
   const id=await window._db.addOne('trustData',row,d);
   trustData.push({...row,_id:id});
   trustData.sort((a,b)=>a.date.localeCompare(b.date));
@@ -978,7 +995,7 @@ async function deleteTrust(id){
   trustData=trustData.filter(r=>r._id!==id);
   renderTrust(); renderSummaryIfActive();
 }
-function clearTrust(){ ['tin-date','tin-rakuten-trust','tin-rakuten-gain','tin-sbi-trust','tin-sbi-gain','tin-deposit','tin-family','tin-accumDep','tin-accumSal','tin-gainCum'].forEach(id=>document.getElementById(id).value=''); calcTrustTotal(); }
+function clearTrust(){ ['tin-date','tin-rakuten-trust','tin-rakuten-gain','tin-sbi-trust','tin-sbi-gain','tin-deposit','tin-family','tin-accumDep','tin-accumSal','tin-realizedGain'].forEach(id=>document.getElementById(id).value=''); calcTrustTotal(); }
 
 async function applyDepositEvent(){
   const mo=v('dep-month'),addVal=+v('dep-newval'),memo=v('dep-memo');
