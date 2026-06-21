@@ -291,6 +291,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
   <div class="logo">
     <div class="logo-mark">¥</div>
     <span class="logo-text">資産管理ダッシュボード</span>
+    <span style="font-size:10px;color:var(--muted);background:var(--card);border:1px solid var(--border);padding:2px 8px;border-radius:10px;font-family:var(--mono)">v1.0.0</span>
   </div>
   <div style="display:flex;align-items:center;gap:14px">
     <span style="font-size:11px;color:var(--muted)" id="userEmail"></span>
@@ -454,7 +455,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
           <th></th><th>日付</th>
           <th class="num">資産合計</th><th class="num">投資信託</th>
           <th class="num">評価損益</th><th class="num">損益率</th>
-          <th class="num">利益確定額</th><th class="num">累積確定額</th>
+          <th class="num">利益確定額</th><th class="num">累積（評価込み）</th>
           <th class="num">預かり金</th><th class="num">実家分</th>
           <th class="num">積立_預かり</th><th class="num">積立_給料</th>
           <th class="num">月積立合計</th><th></th>
@@ -929,8 +930,8 @@ function renderTrust(){
       <td class="num ${r.gainPct==null?'':r.gainPct>=0?'pos':'neg'}">${r.gainPct!=null?pct(r.gainPct):'—'}</td>
       <td class="num" style="color:var(--gold)">${r.realizedGain?'+'+yen(r.realizedGain):'—'}</td>
       <td class="num" style="color:var(--gold-lt);font-weight:600">
-        ${r.realizedGainCum!=null?yen(r.realizedGainCum):'—'}
-        ${r.realizedGainCum!=null&&r.gain!=null?`<div style="font-size:9px;color:var(--muted);font-weight:400">評価込み ${yen(r.realizedGainCum+r.gain)}</div>`:''}
+        ${r.realizedGainCum!=null&&r.gain!=null?yen(r.realizedGainCum+r.gain):'—'}
+        ${r.realizedGainCum!=null?`<div style="font-size:9px;color:var(--muted);font-weight:400">確定分のみ ${yen(r.realizedGainCum)}</div>`:''}
       </td>
       <td class="num ${r.deposit<0?'neg':''}">${yen(r.deposit)}</td>
       <td class="num" style="color:var(--muted)">${yen(r.family)}</td>
@@ -967,7 +968,7 @@ function calcTrustTotal(){
   const newRealizedCum=prevRealizedCum+realized;
   const withUnrealized=newRealizedCum+gain;
   const cumEl=document.getElementById('tin-gainCum-preview');
-  cumEl.innerHTML = `累積確定額：<b>${yen(newRealizedCum)}</b>　／　評価損益込み：<span style="color:var(--muted)">${yen(withUnrealized)}</span>`;
+  cumEl.innerHTML = `累積（評価込み）：<b>${yen(withUnrealized)}</b>　／　確定分のみ：<span style="color:var(--muted)">${yen(newRealizedCum)}</span>`;
 }
 
 async function addTrustRow(){
