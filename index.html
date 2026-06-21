@@ -289,7 +289,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
   <div class="logo">
     <div class="logo-mark">¥</div>
     <span class="logo-text">資産管理ダッシュボード</span>
-    <span style="font-size:10px;color:var(--muted);background:var(--card);border:1px solid var(--border);padding:2px 8px;border-radius:10px;font-family:var(--mono)">v1.3.0</span>
+    <span style="font-size:10px;color:var(--muted);background:var(--card);border:1px solid var(--border);padding:2px 8px;border-radius:10px;font-family:var(--mono)">v1.4.0</span>
   </div>
   <div style="display:flex;align-items:center;gap:14px">
     <span style="font-size:11px;color:var(--muted)" id="userEmail"></span>
@@ -324,6 +324,17 @@ tr:hover td{background:rgba(255,255,255,.02)}
   <div class="card">
     <div class="card-head"><div><div class="card-title">預かり金 残高予測</div><div class="card-sub">現在設定の積立額で毎月減算。利益確定で増加する場合あり</div></div></div>
     <div class="card-body"><canvas id="smDepositChart" height="130"></canvas></div>
+  </div>
+  <div class="card">
+    <div class="card-head">
+      <div><div class="card-title">資産構成 推移</div><div class="card-sub">投資信託・累積（評価込み）は月次実績、貯金額・その他資産は記録した日付の値（線は記録間を補間）</div></div>
+      <div class="toggle-row" id="cmpTglRange">
+        <span class="tgl" onclick="setCmpRange(12,this)">1年</span>
+        <span class="tgl" onclick="setCmpRange(24,this)">2年</span>
+        <span class="tgl on" onclick="setCmpRange(0,this)">全期間</span>
+      </div>
+    </div>
+    <div class="card-body"><canvas id="smCompareChart" height="180"></canvas></div>
   </div>
 </div>
 
@@ -572,13 +583,26 @@ tr:hover td{background:rgba(255,255,255,.02)}
   </div>
 
   <div class="card">
-    <div class="card-head"><div class="card-title">保有資産一覧</div></div>
+    <div class="card-head"><div><div class="card-title">保有資産一覧</div><div class="card-sub">資産名をクリックすると、その資産の日付別履歴が下に表示されます</div></div></div>
     <div class="tbl-wrap">
       <table>
         <thead><tr>
           <th>資産名</th><th>種別</th><th class="num">評価額</th><th>基準日</th><th>メモ</th><th></th>
         </tr></thead>
         <tbody id="otherTbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card" id="otherHistoryCard" style="display:none">
+    <div class="card-head">
+      <div><div class="card-title" id="otherHistoryTitle">履歴</div><div class="card-sub">この資産の日付別記録</div></div>
+      <button class="btn-sm" onclick="closeOtherHistory()">閉じる ✕</button>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>日付</th><th class="num">評価額</th><th>メモ</th><th></th></tr></thead>
+        <tbody id="otherHistoryTbody"></tbody>
       </table>
     </div>
   </div>
@@ -689,11 +713,12 @@ const INITIAL_RIBON = [
 // ============================
 window._initApp = async () => {
   // Firestoreから読み込み
-  const [trust, savings, ribon, other, settings] = await Promise.all([
+  const [trust, savings, ribon, other, otherHist, settings] = await Promise.all([
     window._db.loadAll('trustData'),
     window._db.loadAll('savingsData'),
     window._db.loadAll('ribonData'),
     window._db.loadAll('otherAssets'),
+    window._db.loadAll('otherAssetsHistory'),
     window._db.loadSettings(),
   ]);
 
@@ -713,6 +738,7 @@ window._initApp = async () => {
     ribonData   = ribon.sort((a,b)=>a.no-b.no);
   }
   otherAssets = other || [];
+  otherAssetsHistory = otherHist || [];
   accumSchedule = settings.accumSchedule || [];
 
   document.getElementById('hdrDate').textContent =
@@ -880,6 +906,66 @@ function renderSummary(){
   charts.smTotal=new Chart(document.getElementById('smTotalChart'),{type:'line',data:{labels:r18.map(r=>r.date.slice(0,7)),datasets:[{label:'資産合計',data:r18.map(r=>r.total),borderColor:'#C9963A',backgroundColor:'rgba(201,150,58,.07)',borderWidth:2,pointRadius:3,fill:true,tension:.3}]},options:{plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>(v/10000).toFixed(0)+'万'}}}}});
   charts.smGain=new Chart(document.getElementById('smGainChart'),{type:'bar',data:{labels:r18.map(r=>r.date.slice(0,7)),datasets:[{label:'評価損益',data:r18.map(r=>r.gain),backgroundColor:r18.map(r=>r.gain>=0?'rgba(60,201,138,.6)':'rgba(224,91,91,.6)'),borderRadius:3}]},options:{plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>(v/10000).toFixed(0)+'万'}}}}});
   charts.smDeposit=new Chart(document.getElementById('smDepositChart'),{type:'line',data:{labels:rows.map(r=>r.date.slice(0,7)),datasets:[{label:'実績',data:rows.map(r=>isActual(r)?r.deposit:null),borderColor:'#C9963A',backgroundColor:'rgba(201,150,58,.06)',borderWidth:2,pointRadius:2,fill:true,tension:.3,spanGaps:false},{label:'予測（自動計算）',data:rows.map(r=>r._forecast?r.deposit:null),borderColor:'#8B6FCC',borderWidth:1.5,pointRadius:2,borderDash:[5,4],tension:.3,spanGaps:false}]},options:{plugins:{legend:{labels:{boxWidth:10}}},scales:{y:{ticks:{callback:v=>(v/10000).toFixed(0)+'万'}}}}});
+
+  renderCompareChart();
+}
+
+// ============================
+// 資産構成 比較チャート
+// 投資信託・累積（評価込み）は月次実績（trustData）に紐づく値。
+// 貯金額・その他金融資産は不定期な記録日付の値で、記録のある点のみプロットし線で補間する。
+// ============================
+let cmpRangeN = 0;
+function setCmpRange(n,el){ cmpRangeN=n; tglSet('cmpTglRange',el); renderCompareChart(); }
+function renderCompareChart(){
+  const actual = trustData.filter(isActual).sort((a,b)=>a.date.localeCompare(b.date));
+  if (!actual.length) return;
+
+  // 横軸：投資信託の実績月 ＋ 貯金額の記録日 ＋ その他資産履歴の記録日 を統合してユニーク化
+  const savDates = savingsData.map(r=>r.date);
+  const otherDates = [...new Set(otherAssetsHistory.map(r=>r.date))];
+  const allDates = [...new Set([...actual.map(r=>r.date), ...savDates, ...otherDates])].sort();
+  const rng = cmpRangeN===0 ? allDates : allDates.slice(-cmpRangeN*2); // 月次以外も混じるため余裕を持たせる
+
+  // 投資信託評価額・累積（評価込み）：実績行をベースにマッピング（その日付がそのまま実績にある場合のみ値、なければnull＝線でつながらない）
+  const trustMap = {}; const cumMap = {};
+  actual.forEach(r=>{
+    trustMap[r.date] = r.trust;
+    cumMap[r.date] = (r.realizedGainCum!=null && r.gain!=null) ? r.realizedGainCum + r.gain : null;
+  });
+
+  // 貯金額：記録のある日付のみ値
+  const savMap = {};
+  savingsData.forEach(r=>{ savMap[r.date] = r.total; });
+
+  // その他金融資産：同じ日付の全資産を合計
+  const otherMap = {};
+  otherDates.forEach(d=>{
+    otherMap[d] = otherAssetsHistory.filter(r=>r.date===d).reduce((s,r)=>s+r.amount,0);
+  });
+
+  destroyChart('smCompare');
+  charts.smCompare = new Chart(document.getElementById('smCompareChart'), {
+    type: 'line',
+    data: {
+      labels: rng.map(d=>d.slice(0,7)+'-'+d.slice(8,10)),
+      datasets: [
+        { label:'投資信託 評価額', data: rng.map(d=>trustMap[d]!=null?trustMap[d]:null),
+          borderColor:'#4A90D9', backgroundColor:'rgba(74,144,217,.05)', borderWidth:2, pointRadius:3, fill:false, tension:.3, spanGaps:true },
+        { label:'累積（評価込み）', data: rng.map(d=>cumMap[d]!=null?cumMap[d]:null),
+          borderColor:'#C9963A', backgroundColor:'rgba(201,150,58,.05)', borderWidth:2, pointRadius:3, fill:false, tension:.3, spanGaps:true },
+        { label:'貯金額 合計', data: rng.map(d=>savMap[d]!=null?savMap[d]:null),
+          borderColor:'#8B6FCC', borderWidth:1.5, pointRadius:3, fill:false, tension:.3, spanGaps:true, borderDash:[4,3] },
+        { label:'その他金融資産', data: rng.map(d=>otherMap[d]!=null?otherMap[d]:null),
+          borderColor:'#3CC98A', borderWidth:1.5, pointRadius:3, fill:false, tension:.3, spanGaps:true, borderDash:[2,2] },
+      ]
+    },
+    options: {
+      interaction:{mode:'index',intersect:false},
+      plugins:{legend:{labels:{boxWidth:10}}},
+      scales:{y:{ticks:{callback:v=>(v/10000).toFixed(0)+'万'}}}
+    }
+  });
 }
 
 // ============================
@@ -1099,6 +1185,7 @@ async function applyAccumChange(){
 }
 
 let otherAssets = [];
+let otherAssetsHistory = [];
 
 // ============================
 // その他金融資産
@@ -1117,7 +1204,7 @@ function renderOther(){
   document.getElementById('otherTbody').innerHTML = [...otherAssets].sort((a,b)=>b.amount-a.amount).map(r=>{
     const bw = Math.round(r.amount/maxA*80);
     return `<tr>
-      <td style="font-weight:600">${r.name}</td>
+      <td style="font-weight:600;cursor:pointer;color:var(--gold-lt)" onclick="showOtherHistory('${r.name.replace(/'/g,"\\'")}')">${r.name} <span style="font-size:10px;color:var(--muted)">📊履歴</span></td>
       <td><span class="tag" style="background:rgba(255,255,255,.05);color:${otherTypeColor[r.type]}">${otherTypeLabel[r.type]}</span></td>
       <td class="num">
         <div style="display:flex;align-items:center;gap:6px;justify-content:flex-end">
@@ -1133,6 +1220,29 @@ function renderOther(){
       </td>
     </tr>`;
   }).join('');
+}
+
+function showOtherHistory(name){
+  const hist = otherAssetsHistory.filter(h=>h.name===name).sort((a,b)=>b.date.localeCompare(a.date));
+  document.getElementById('otherHistoryTitle').textContent = `履歴：${name}`;
+  document.getElementById('otherHistoryTbody').innerHTML = hist.length ? hist.map(h=>`
+    <tr>
+      <td>${h.date}</td>
+      <td class="num">${yen(h.amount)}</td>
+      <td style="color:var(--muted);font-size:11px">${h.note||'—'}</td>
+      <td><button class="btn-sm" onclick="deleteOtherHistory('${h._id}','${name.replace(/'/g,"\\'")}')">削除</button></td>
+    </tr>`).join('') : '<tr><td colspan="4" style="color:var(--muted);text-align:center">履歴がありません</td></tr>';
+  document.getElementById('otherHistoryCard').style.display = '';
+  document.getElementById('otherHistoryCard').scrollIntoView({behavior:'smooth'});
+}
+function closeOtherHistory(){
+  document.getElementById('otherHistoryCard').style.display = 'none';
+}
+async function deleteOtherHistory(id, name){
+  await window._db.deleteOne('otherAssetsHistory', id);
+  otherAssetsHistory = otherAssetsHistory.filter(h=>h._id!==id);
+  showOtherHistory(name);
+  renderSummaryIfActive();
 }
 
 function editOther(id){
@@ -1151,18 +1261,36 @@ async function addOther(){
   const nameEl = document.getElementById('oth-name');
   const name=nameEl.value.trim(), type=v('oth-type'), amount=nv('oth-amount'), date=v('oth-date'), note=v('oth-note');
   if(!name||amount===null){ alert('資産名と評価額は必須'); return; }
+  if(!date){ alert('基準日は履歴管理のため必須です'); return; }
   const editId = nameEl.dataset.editId;
   if(editId){
-    // 編集モード：既存レコードを更新
+    // 編集モード：既存レコード（最新値スナップショット）を更新
     const data = {name, type, amount, date, note};
     await window._db.updateOne('otherAssets', editId, data);
     const r = otherAssets.find(r=>r._id===editId);
     if(r) Object.assign(r, data);
   } else {
-    // 新規追加
+    // 新規追加：最新値スナップショットを上書き（同名資産は1件のみ）
+    const existing = otherAssets.find(r=>r.name===name);
     const row = {name, type, amount, date, note};
-    const id = await window._db.addOne('otherAssets', row, name.replace(/[\s\/]/g,'_'));
-    otherAssets.push({...row, _id:id});
+    if(existing){
+      await window._db.updateOne('otherAssets', existing._id, row);
+      Object.assign(existing, row);
+    } else {
+      const id = await window._db.addOne('otherAssets', row, name.replace(/[\s\/]/g,'_'));
+      otherAssets.push({...row, _id:id});
+    }
+  }
+  // 履歴コレクションには常に新規レコードとして追加（同名・同日付なら上書き）
+  const histId = `${name.replace(/[\s\/]/g,'_')}_${date}`;
+  const histRow = {name, type, amount, date, note};
+  const existingHist = otherAssetsHistory.find(h=>h._id===histId);
+  if(existingHist){
+    await window._db.updateOne('otherAssetsHistory', histId, histRow);
+    Object.assign(existingHist, histRow);
+  } else {
+    await window._db.addOne('otherAssetsHistory', histRow, histId);
+    otherAssetsHistory.push({...histRow, _id:histId});
   }
   clearOther(); renderOther(); renderSummaryIfActive(); showAlert('otherAlert');
 }
