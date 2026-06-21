@@ -220,8 +220,6 @@ tr:hover td{background:rgba(255,255,255,.02)}
 .bar-seg{height:6px;border-radius:3px}
 
 /* 利益確定入力 */
-.deposit-event{background:rgba(201,150,58,.08);border:1px solid rgba(201,150,58,.3);border-radius:8px;padding:14px;margin-bottom:14px}
-.deposit-event-title{font-size:11px;color:var(--gold);font-weight:600;margin-bottom:10px}
 
 @media(max-width:600px){main{padding:12px};.kpi-val{font-size:18px}}
 
@@ -291,7 +289,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
   <div class="logo">
     <div class="logo-mark">¥</div>
     <span class="logo-text">資産管理ダッシュボード</span>
-    <span style="font-size:10px;color:var(--muted);background:var(--card);border:1px solid var(--border);padding:2px 8px;border-radius:10px;font-family:var(--mono)">v1.1.2</span>
+    <span style="font-size:10px;color:var(--muted);background:var(--card);border:1px solid var(--border);padding:2px 8px;border-radius:10px;font-family:var(--mono)">v1.3.0</span>
   </div>
   <div style="display:flex;align-items:center;gap:14px">
     <span style="font-size:11px;color:var(--muted)" id="userEmail"></span>
@@ -378,7 +376,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
         </div>
       </div>
       <div style="background:rgba(74,144,217,.06);border:1px solid rgba(74,144,217,.2);border-radius:8px;padding:10px;margin-top:10px;font-size:11px;color:var(--muted)">
-        💡 預かり金は通常、「積立（預かり分）」（投資信託管理タブの「積立額の変更」で設定）のみが前月から自動で減算されます。「積立（給料）」は給料から別に積み立てるため預かり金からは減算されません。同月内に複数回登録しても積立額の減算は1回だけです。手動で値を入力した場合は、その値が優先され自動計算は行われません。
+        💡 預かり金は通常、「積立（預かり分）」（投資信託管理タブの「積立額の変更」で設定）のみが前月から自動で減算されます。「積立（給料）」は給料から別に積み立てるため預かり金からは減算されません。同月内に複数回登録しても積立額の減算は1回だけです。<b>利益確定などで預かり金が増えた場合は、増えた後の正しい金額をこの欄に直接入力してください。</b>手動で値を入力した場合は、その値が優先され、以降の月もその値を起点に自動計算されます。
       </div>
       <div style="background:rgba(201,150,58,.06);border:1px solid rgba(201,150,58,.2);border-radius:8px;padding:12px;margin-top:12px">
         <div style="font-size:10px;color:var(--muted);margin-bottom:4px">累積：確定額は前月の累積確定額＋今月の確定額のみで積算（評価損益は含まない）。「評価込み」は表示時に今月の評価損益を加えた参考値</div>
@@ -392,26 +390,6 @@ tr:hover td{background:rgba(255,255,255,.02)}
   </div>
 
   <!-- 利益確定イベント -->
-  <div class="card">
-    <div class="card-head">
-      <div><div class="card-title">💰 利益確定 → 預かり金に追加</div><div class="card-sub">投資信託売却などで預かり金が増えたとき。指定月の預かり金減算前に加算されます</div></div>
-    </div>
-    <div class="card-body">
-      <div class="deposit-event">
-        <div class="deposit-event-title">預かり金を増額する</div>
-        <div class="form-grid" style="grid-template-columns:1fr 1fr 1fr 1fr">
-          <div class="fg"><label>対象月</label><input type="month" id="dep-month"></div>
-          <div class="fg"><label>増額する金額（円）</label><input type="number" id="dep-newval" placeholder="例: 790000"></div>
-          <div class="fg"><label>メモ</label><input type="text" id="dep-memo" placeholder="例: SBIを利益確定79万円"></div>
-        </div>
-        <div class="btn-row" style="margin-top:10px">
-          <button class="btn-primary" onclick="applyDepositEvent()">適用</button>
-        </div>
-      </div>
-      <div id="depEventLog" style="font-size:11px;color:var(--muted)"></div>
-    </div>
-  </div>
-
   <!-- 積立設定 -->
   <div class="card">
     <div class="card-head"><div><div class="card-title">⚙️ 積立額の変更</div><div class="card-sub">J列（預かり分）・K列（給料分）を変更すると以降の予測行に反映</div></div></div>
@@ -616,7 +594,6 @@ tr:hover td{background:rgba(255,255,255,.02)}
 let trustData       = [];
 let savingsData     = [];
 let ribonData       = [];
-let depositEvents   = [];
 let accumSchedule   = [];
 
 // Firestoreドキュメントのid管理用マップ
@@ -736,12 +713,7 @@ window._initApp = async () => {
     ribonData   = ribon.sort((a,b)=>a.no-b.no);
   }
   otherAssets = other || [];
-  depositEvents = settings.depositEvents || [];
   accumSchedule = settings.accumSchedule || [];
-
-  // ログイン後の利益確定ログ表示
-  const log = depositEvents.map(e=>`<div>💰 ${e.month}：+${yen(e.addAmount)} ${e.memo}</div>`).join('');
-  document.getElementById('depEventLog').innerHTML = log || '<span style="color:var(--muted)">（なし）</span>';
 
   document.getElementById('hdrDate').textContent =
     new Date().toLocaleDateString('ja-JP',{year:'numeric',month:'long',day:'numeric'});
@@ -756,7 +728,7 @@ window._initApp = async () => {
 // 設定保存ヘルパー
 // ============================
 async function saveSettings() {
-  await window._db.saveSettings({ depositEvents, accumSchedule });
+  await window._db.saveSettings({ accumSchedule });
 }
 
 // ============================
@@ -788,18 +760,17 @@ function buildForecast(months=60) {
   let cur = new Date(last.date);
   for (let i=0; i<months; i++) {
     cur = new Date(cur.getFullYear(), cur.getMonth()+1, 1);
-    const dateStr = cur.toISOString().slice(0,10);
-    const monthStr = dateStr.slice(0,7);
+    const y = cur.getFullYear();
+    const m = String(cur.getMonth()+1).padStart(2,'0');
+    const dateStr = `${y}-${m}-01`;
+    const monthStr = `${y}-${m}`;
     const sched = accumSchedule.find(s=>s.month===monthStr);
     if (sched) { if(sched.dep!=null) accumDep=sched.dep; if(sched.sal!=null) accumSal=sched.sal; }
-    const evts = depositEvents.filter(e=>e.month===monthStr);
-    evts.forEach(e=>{ dep += e.addAmount; });
     dep = dep - accumDep;
     rows.push({ date:dateStr, total:null, trust:null, gain:null, gainPct:null,
       realizedGain:null, realizedGainCum:last.realizedGainCum!=null?last.realizedGainCum:null,
       deposit:dep, family:last.family,
-      accumDep, accumSal, _forecast:true,
-      _events: evts.length ? evts.map(e=>e.memo).join(', ') : null });
+      accumDep, accumSal, _forecast:true });
     if (dep <= 0) break;
   }
   return rows;
@@ -1013,7 +984,7 @@ function calcTrustTotal(){
 }
 
 // 指定日付の月における自動計算の預かり金残高を算出
-// ルール：前月の預かり金から、積立額（accumDep+accumSal）を「その月で初めての登録の場合のみ」1回だけ減算
+// ルール：前月の預かり金から、積立（預かり分）を「その月で初めての登録の場合のみ」1回だけ減算
 function computeAutoDeposit(dateStr){
   if (!dateStr) return null;
   const monthStr = dateStr.slice(0,7);
@@ -1026,13 +997,11 @@ function computeAutoDeposit(dateStr){
   let accumDep = prevRow.accumDep||0, accumSal = prevRow.accumSal||0;
   const sched = accumSchedule.filter(s=>s.month<=monthStr).sort((a,b)=>a.month.localeCompare(b.month)).slice(-1)[0];
   if (sched) { if(sched.dep!=null) accumDep=sched.dep; if(sched.sal!=null) accumSal=sched.sal; }
-  // 利益確定イベント（このdateの月に該当するもの）
-  const evt = depositEvents.filter(e=>e.month===monthStr).reduce((s,e)=>s+e.addAmount,0);
   if (sameMonthExists) {
-    // 同月内2件目以降：積立額は減算しない（前月の値＋イベントのみ）
-    return (prevRow.deposit||0) + evt;
+    // 同月内2件目以降：積立額は減算しない（前月の値のまま）
+    return prevRow.deposit||0;
   }
-  return (prevRow.deposit||0) + evt - accumDep;
+  return (prevRow.deposit||0) - accumDep;
 }
 
 async function addTrustRow(){
@@ -1068,16 +1037,16 @@ async function addTrustRow(){
     accumSal = prevRow ? (prevRow.accumSal||0) : 0;
     const sched = accumSchedule.filter(s=>s.month<=monthStr).sort((a,b)=>a.month.localeCompare(b.month)).slice(-1)[0];
     if (sched) { if(sched.dep!=null) accumDep=sched.dep; if(sched.sal!=null) accumSal=sched.sal; }
-    const evt = depositEvents.filter(e=>e.month===monthStr).reduce((s,e)=>s+e.addAmount,0);
     const baseDep = prevRow ? (prevRow.deposit||0) : 0;
-    dep = sameMonthExists ? (baseDep + evt) : (baseDep + evt - accumDep);
+    dep = sameMonthExists ? baseDep : (baseDep - accumDep);
   }
 
   const tot = tr + (dep||0) - (fam||0);
   const row={date:d, total:tot, trust:tr, gain, gainPct,
     realizedGain, realizedGainCum,
     deposit:dep, family:fam, accumDep, accumSal,
-    rakutenTrust:rt, rakutenGain:rg, sbiTrust:st, sbiGain:sg};
+    rakutenTrust:rt, rakutenGain:rg, sbiTrust:st, sbiGain:sg,
+    _manualDeposit: depManual !== null};
   const id=await window._db.addOne('trustData',row,d);
   trustData = trustData.filter(r=>r.date!==d);
   trustData.push({...row,_id:id});
@@ -1091,17 +1060,32 @@ async function deleteTrust(id){
 }
 function clearTrust(){ ['tin-date','tin-rakuten-trust','tin-rakuten-gain','tin-sbi-trust','tin-sbi-gain','tin-deposit','tin-family','tin-realizedGain'].forEach(id=>document.getElementById(id).value=''); calcTrustTotal(); }
 
-async function applyDepositEvent(){
-  const mo=v('dep-month'),addVal=+v('dep-newval'),memo=v('dep-memo');
-  if(!mo||!addVal){ alert('対象月と増額額を入力してください'); return; }
-  depositEvents=depositEvents.filter(e=>e.month!==mo);
-  depositEvents.push({month:mo,addAmount:addVal,memo:memo||''});
-  await saveSettings();
-  renderTrust(); renderSummaryIfActive(); showAlert('trustAlert');
-  const log=depositEvents.map(e=>`<div>💰 ${e.month}：+${yen(e.addAmount)} ${e.memo}</div>`).join('');
-  document.getElementById('depEventLog').innerHTML=log||'<span style="color:var(--muted)">（なし）</span>';
-  ['dep-month','dep-newval','dep-memo'].forEach(id=>document.getElementById(id).value='');
+// 指定月以降の実績行（trustData）を、積立額の変更を反映して再計算する。
+// 積立スケジュールを変更した際、既存の実績行にも反映させるために使う。
+// 手動で値を固定した行（_manualDeposit）はスキップする。
+async function recalcDepositsFrom(fromMonth){
+  const sorted = trustData.filter(isActual).sort((a,b)=>a.date.localeCompare(b.date));
+  for (let i=0; i<sorted.length; i++){
+    const row = sorted[i];
+    if (row.date.slice(0,7) < fromMonth) continue;
+    if (row._manualDeposit) continue; // 手動で値を固定した行はスキップ
+    const prevRow = sorted[i-1];
+    const monthStr = row.date.slice(0,7);
+    const sameMonthExists = sorted.slice(0,i).some(r=>r.date.slice(0,7)===monthStr);
+    let accumDep = prevRow ? (prevRow.accumDep||0) : (row.accumDep||0);
+    let accumSal = prevRow ? (prevRow.accumSal||0) : (row.accumSal||0);
+    const sched = accumSchedule.filter(s=>s.month<=monthStr).sort((a,b)=>a.month.localeCompare(b.month)).slice(-1)[0];
+    if (sched) { if(sched.dep!=null) accumDep=sched.dep; if(sched.sal!=null) accumSal=sched.sal; }
+    const baseDep = prevRow ? (prevRow.deposit||0) : 0;
+    const newDep = sameMonthExists ? baseDep : (baseDep - accumDep);
+    row.deposit = newDep;
+    row.accumDep = accumDep;
+    row.accumSal = accumSal;
+    row.total = (row.trust||0) + newDep - (row.family||0);
+    await window._db.updateOne('trustData', row._id, {deposit:newDep, accumDep, accumSal, total:row.total});
+  }
 }
+
 async function applyAccumChange(){
   const mo=v('acc-month'),dep=nv('acc-dep'),sal=nv('acc-sal');
   if(!mo||(dep===null&&sal===null)){ alert('開始月と変更する積立額を入力してください'); return; }
@@ -1109,6 +1093,7 @@ async function applyAccumChange(){
   accumSchedule.push({month:mo,dep,sal});
   accumSchedule.sort((a,b)=>a.month.localeCompare(b.month));
   await saveSettings();
+  await recalcDepositsFrom(mo);
   renderTrust(); renderSummaryIfActive(); showAlert('trustAlert');
   ['acc-month','acc-dep','acc-sal'].forEach(id=>document.getElementById(id).value='');
 }
