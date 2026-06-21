@@ -990,8 +990,6 @@ function calcTrustTotal(){
   document.getElementById('tin-asset-preview').textContent=trust&&dep?yen(total):'—';
 
   // 累積利益確定額プレビュー（確定額のみの積算。評価損益は含めない）
-  const sortedActual=[...trustData].filter(isActual).sort((a,b)=>a.date.localeCompare(b.date));
-  const prevRow=sortedActual[sortedActual.length-1];
   const prevRealizedCum=prevRow&&prevRow.realizedGainCum!=null?prevRow.realizedGainCum:0;
   const newRealizedCum=prevRealizedCum+realized;
   const withUnrealized=newRealizedCum+gain;
