@@ -291,7 +291,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
   <div class="logo">
     <div class="logo-mark">¥</div>
     <span class="logo-text">資産管理ダッシュボード</span>
-    <span style="font-size:10px;color:var(--muted);background:var(--card);border:1px solid var(--border);padding:2px 8px;border-radius:10px;font-family:var(--mono)">v1.1.1</span>
+    <span style="font-size:10px;color:var(--muted);background:var(--card);border:1px solid var(--border);padding:2px 8px;border-radius:10px;font-family:var(--mono)">v1.1.2</span>
   </div>
   <div style="display:flex;align-items:center;gap:14px">
     <span style="font-size:11px;color:var(--muted)" id="userEmail"></span>
@@ -378,7 +378,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
         </div>
       </div>
       <div style="background:rgba(74,144,217,.06);border:1px solid rgba(74,144,217,.2);border-radius:8px;padding:10px;margin-top:10px;font-size:11px;color:var(--muted)">
-        💡 預かり金は通常、積立額（投資信託管理タブの「積立額の変更」で設定）が前月から自動で減算されます。同月内に複数回登録しても積立額の減算は1回だけです。手動で値を入力した場合は、その値が優先され自動計算は行われません。
+        💡 預かり金は通常、「積立（預かり分）」（投資信託管理タブの「積立額の変更」で設定）のみが前月から自動で減算されます。「積立（給料）」は給料から別に積み立てるため預かり金からは減算されません。同月内に複数回登録しても積立額の減算は1回だけです。手動で値を入力した場合は、その値が優先され自動計算は行われません。
       </div>
       <div style="background:rgba(201,150,58,.06);border:1px solid rgba(201,150,58,.2);border-radius:8px;padding:12px;margin-top:12px">
         <div style="font-size:10px;color:var(--muted);margin-bottom:4px">累積：確定額は前月の累積確定額＋今月の確定額のみで積算（評価損益は含まない）。「評価込み」は表示時に今月の評価損益を加えた参考値</div>
@@ -794,7 +794,7 @@ function buildForecast(months=60) {
     if (sched) { if(sched.dep!=null) accumDep=sched.dep; if(sched.sal!=null) accumSal=sched.sal; }
     const evts = depositEvents.filter(e=>e.month===monthStr);
     evts.forEach(e=>{ dep += e.addAmount; });
-    dep = dep - accumDep - accumSal;
+    dep = dep - accumDep;
     rows.push({ date:dateStr, total:null, trust:null, gain:null, gainPct:null,
       realizedGain:null, realizedGainCum:last.realizedGainCum!=null?last.realizedGainCum:null,
       deposit:dep, family:last.family,
@@ -1001,7 +1001,7 @@ function calcTrustTotal(){
   if (depEl) {
     depEl.textContent = depInput!==''
       ? `手動入力値を使用：${yen(dep)}`
-      : (d ? `自動計算：${yen(dep)}（前月の積立額を減算）` : '日付を入力すると自動計算されます');
+      : (d ? `自動計算：${yen(dep)}（前月から「積立_預かり分」のみ減算）` : '日付を入力すると自動計算されます');
   }
   // 実家分プレビューも表示
   const famEl = document.getElementById('tin-family-preview');
@@ -1032,7 +1032,7 @@ function computeAutoDeposit(dateStr){
     // 同月内2件目以降：積立額は減算しない（前月の値＋イベントのみ）
     return (prevRow.deposit||0) + evt;
   }
-  return (prevRow.deposit||0) + evt - accumDep - accumSal;
+  return (prevRow.deposit||0) + evt - accumDep;
 }
 
 async function addTrustRow(){
@@ -1070,7 +1070,7 @@ async function addTrustRow(){
     if (sched) { if(sched.dep!=null) accumDep=sched.dep; if(sched.sal!=null) accumSal=sched.sal; }
     const evt = depositEvents.filter(e=>e.month===monthStr).reduce((s,e)=>s+e.addAmount,0);
     const baseDep = prevRow ? (prevRow.deposit||0) : 0;
-    dep = sameMonthExists ? (baseDep + evt) : (baseDep + evt - accumDep - accumSal);
+    dep = sameMonthExists ? (baseDep + evt) : (baseDep + evt - accumDep);
   }
 
   const tot = tr + (dep||0) - (fam||0);
