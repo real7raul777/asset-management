@@ -454,7 +454,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
           <th></th><th>日付</th>
           <th class="num">資産合計</th><th class="num">投資信託</th>
           <th class="num">評価損益</th><th class="num">損益率</th>
-          <th class="num">利益確定額</th><th class="num">累積利益確定</th>
+          <th class="num">利益確定額</th><th class="num">累積確定額</th>
           <th class="num">預かり金</th><th class="num">実家分</th>
           <th class="num">積立_預かり</th><th class="num">積立_給料</th>
           <th class="num">月積立合計</th><th></th>
@@ -617,45 +617,45 @@ let accumSchedule   = [];
 // 初回ログイン時にFirestoreへ一括保存される
 // ============================
 const INITIAL_TRUST = [
-  { date:"2023-06-19", total:8214224, trust:10014224, gain:2009888, gainPct:0.2511, gainCum:null, gainCumPct:null, deposit:0, family:1800000, accumDep:null, accumSal:null, rakutenTrust:10014224, rakutenGain:2009888, sbiTrust:0, sbiGain:0 },
-  { date:"2023-06-20", total:8367983, trust:4849278, gain:631094, gainPct:0.1496, gainCum:null, gainCumPct:null, deposit:5318705, family:1800000, accumDep:null, accumSal:null, rakutenTrust:4849278, rakutenGain:631094, sbiTrust:0, sbiGain:0 },
-  { date:"2023-07-01", total:8547688, trust:5128983, gain:730799, gainPct:0.1662, gainCum:null, gainCumPct:null, deposit:5218705, family:1800000, accumDep:100000, accumSal:80000, rakutenTrust:5128983, rakutenGain:730799, sbiTrust:0, sbiGain:0 },
-  { date:"2023-08-01", total:8578530, trust:5259825, gain:681642, gainPct:0.1489, gainCum:null, gainCumPct:null, deposit:5118705, family:1800000, accumDep:100000, accumSal:80000, rakutenTrust:5259825, rakutenGain:681642, sbiTrust:0, sbiGain:0 },
-  { date:"2023-09-01", total:8795137, trust:5576432, gain:818249, gainPct:0.172, gainCum:null, gainCumPct:null, deposit:5018705, family:1800000, accumDep:100000, accumSal:80000, rakutenTrust:5576432, rakutenGain:818249, sbiTrust:0, sbiGain:0 },
-  { date:"2023-10-01", total:8726928, trust:5608223, gain:670038, gainPct:0.1357, gainCum:null, gainCumPct:null, deposit:4918705, family:1800000, accumDep:100000, accumSal:80000, rakutenTrust:5608223, rakutenGain:670038, sbiTrust:0, sbiGain:0 },
-  { date:"2023-11-09", total:8938825, trust:5920120, gain:801936, gainPct:0.1567, gainCum:null, gainCumPct:null, deposit:4818705, family:1800000, accumDep:100000, accumSal:80000, rakutenTrust:5920120, rakutenGain:801936, sbiTrust:0, sbiGain:0 },
-  { date:"2023-11-22", total:8808350, trust:2482776, gain:170348, gainPct:0.0737, gainCum:2337946, gainCumPct:0.3613, deposit:9125574, family:2800000, accumDep:null, accumSal:null, rakutenTrust:2482776, rakutenGain:170348, sbiTrust:0, sbiGain:0 },
-  { date:"2023-12-01", total:8669519, trust:2503945, gain:162278, gainPct:0.0693, gainCum:2329876, gainCumPct:0.3675, deposit:8965574, family:2800000, accumDep:160000, accumSal:80000, rakutenTrust:2503945, rakutenGain:162278, sbiTrust:0, sbiGain:0 },
-  { date:"2024-01-01", total:8985962, trust:3021703, gain:200037, gainPct:0.0709, gainCum:2367635, gainCumPct:0.3577, deposit:8764259, family:2800000, accumDep:160000, accumSal:80000, rakutenTrust:3021703, rakutenGain:200037, sbiTrust:0, sbiGain:0 },
-  { date:"2024-02-01", total:9160198, trust:3355939, gain:294273, gainPct:0.0961, gainCum:2461870, gainCumPct:0.3703, deposit:8604259, family:2800000, accumDep:160000, accumSal:30000, rakutenTrust:3305939, rakutenGain:294272, sbiTrust:50000, sbiGain:1 },
-  { date:"2024-03-01", total:9351590, trust:3707331, gain:435664, gainPct:0.1332, gainCum:2603262, gainCumPct:0.3858, deposit:8444259, family:2800000, accumDep:160000, accumSal:30000, rakutenTrust:3707331, rakutenGain:435664, sbiTrust:0, sbiGain:0 },
-  { date:"2024-04-01", total:9680826, trust:4196567, gain:584898, gainPct:0.1619, gainCum:2745964, gainCumPct:0.4051, deposit:8284259, family:2800000, accumDep:160000, accumSal:30000, rakutenTrust:4040032, rakutenGain:578366, sbiTrust:156535, sbiGain:6532 },
-  { date:"2024-05-01", total:9834538, trust:4510279, gain:658610, gainPct:0.171, gainCum:2815202, gainCumPct:0.4135, deposit:8124259, family:2800000, accumDep:160000, accumSal:30000, rakutenTrust:4299269, rakutenGain:647604, sbiTrust:211010, sbiGain:11006 },
-  { date:"2024-06-01", total:9951231, trust:4786972, gain:695304, gainPct:0.1699, gainCum:2849674, gainCumPct:0.4167, deposit:7064259, family:1900000, accumDep:160000, accumSal:30000, rakutenTrust:4523742, rakutenGain:682076, sbiTrust:263230, sbiGain:13228 },
-  { date:"2024-07-01", total:10208218, trust:3223915, gain:495788, gainPct:0.1817, gainCum:3026646, gainCumPct:0.4418, deposit:8884303, family:1900000, accumDep:160000, accumSal:30000, rakutenTrust:2892526, rakutenGain:464407, sbiTrust:331389, sbiGain:31381 },
-  { date:"2024-08-01", total:10160182, trust:2402788, gain:130091, gainPct:0.0572, gainCum:2873556, gainCumPct:0.4145, deposit:8857394, family:1100000, accumDep:160000, accumSal:30000, rakutenTrust:2048491, rakutenGain:125807, sbiTrust:354297, sbiGain:4284 },
-  { date:"2024-09-01", total:9574330, trust:2676936, gain:114246, gainPct:0.0446, gainCum:2859468, gainCumPct:0.4566, deposit:7997394, family:1100000, accumDep:160000, accumSal:30000, rakutenTrust:2224404, rakutenGain:111719, sbiTrust:452532, sbiGain:2527 },
-  { date:"2024-10-01", total:9814321, trust:3076927, gain:224239, gainPct:0.0786, gainCum:2950747, gainCumPct:0.4689, deposit:7737394, family:1000000, accumDep:160000, accumSal:30000, rakutenTrust:2505683, rakutenGain:202998, sbiTrust:571244, sbiGain:21241 },
-  { date:"2024-11-01", total:9938524, trust:3366941, gain:324254, gainPct:0.1066, gainCum:3033755, gainCumPct:0.4803, deposit:7570892, family:1000000, accumDep:160000, accumSal:30000, rakutenTrust:2778691, rakutenGain:286006, sbiTrust:588250, sbiGain:38248 },
-  { date:"2024-12-01", total:10263823, trust:3850011, gain:417299, gainPct:0.1216, gainCum:3112550, gainCumPct:0.4903, deposit:7403812, family:990000, accumDep:160000, accumSal:30000, rakutenTrust:3047486, rakutenGain:364801, sbiTrust:802525, sbiGain:52498 },
-  { date:"2025-01-01", total:10495743, trust:3243123, gain:340432, gainPct:0.1173, gainCum:3224401, gainCumPct:0.5081, deposit:8242620, family:990000, accumDep:160000, accumSal:30000, rakutenTrust:2317738, rakutenGain:265053, sbiTrust:925385, sbiGain:75379 },
-  { date:"2025-02-01", total:10594518, trust:3501898, gain:309188, gainPct:0.0968, gainCum:3202124, gainCumPct:0.5022, deposit:8082620, family:990000, accumDep:160000, accumSal:30000, rakutenTrust:2485461, rakutenGain:242776, sbiTrust:1016437, sbiGain:66412 },
-  { date:"2025-03-01", total:10673316, trust:4540696, gain:57993, gainPct:0.0129, gainCum:3002302, gainCumPct:0.4545, deposit:6922620, family:790000, accumDep:160000, accumSal:30000, rakutenTrust:3475639, rakutenGain:42954, sbiTrust:1065057, sbiGain:15039 },
-  { date:"2025-04-01", total:10180181, trust:4411761, gain:-360934, gainPct:-0.0756, gainCum:2703067, gainCumPct:0.4203, deposit:6558420, family:790000, accumDep:160000, accumSal:30000, rakutenTrust:3366404, rakutenGain:-256281, sbiTrust:1045357, sbiGain:-104653 },
-  { date:"2025-05-01", total:10762569, trust:5154149, gain:91428, gainPct:0.0181, gainCum:3045758, gainCumPct:0.4714, deposit:6398420, family:790000, accumDep:160000, accumSal:30000, rakutenTrust:3899095, rakutenGain:86410, sbiTrust:1255054, sbiGain:5018 },
-  { date:"2025-06-01", total:11027027, trust:5604103, gain:251408, gainPct:0.047, gainCum:3167580, gainCumPct:0.4899, deposit:5822924, family:400000, accumDep:160000, accumSal:30000, rakutenTrust:4210917, rakutenGain:208232, sbiTrust:1393186, sbiGain:43176 },
-  { date:"2025-07-01", total:11283773, trust:6049325, gain:506629, gainPct:0.0914, gainCum:3360341, gainCumPct:0.5196, deposit:5634448, family:400000, accumDep:160000, accumSal:30000, rakutenTrust:4593679, rakutenGain:400993, sbiTrust:1455646, sbiGain:105636 },
-  { date:"2025-08-01", total:11411890, trust:6356517, gain:713794, gainPct:0.1265, gainCum:3518337, gainCumPct:0.5685, deposit:5455373, family:400000, accumDep:160000, accumSal:40000, rakutenTrust:4651674, rakutenGain:558989, sbiTrust:1704843, sbiGain:154805 },
-  { date:"2025-09-01", total:11947884, trust:7052511, gain:909789, gainPct:0.1481, gainCum:3663311, gainCumPct:0.5611, deposit:5295373, family:400000, accumDep:160000, accumSal:40000, rakutenTrust:5296647, rakutenGain:703963, sbiTrust:1755864, sbiGain:205826 },
-  { date:"2025-10-01", total:12379126, trust:7643753, gain:1201016, gainPct:0.1864, gainCum:3881714, gainCumPct:0.5909, deposit:5135373, family:400000, accumDep:160000, accumSal:40000, rakutenTrust:5715051, rakutenGain:922366, sbiTrust:1928702, sbiGain:278650 },
-  { date:"2025-11-01", total:16565344, trust:8985051, gain:922366, gainPct:0.1144, gainCum:3881714, gainCumPct:0.306, deposit:7980293, family:400000, accumDep:220000, accumSal:40000, rakutenTrust:8985051, rakutenGain:922366, sbiTrust:0, sbiGain:0 },
-  { date:"2025-12-01", total:19620736, trust:7335833, gain:585793, gainPct:0.0868, gainCum:4426971, gainCumPct:0.3426, deposit:12684903, family:400000, accumDep:300000, accumSal:40000, rakutenTrust:5063849, rakutenGain:163849, sbiTrust:2271984, sbiGain:421944 },
-  { date:"2026-01-01", total:20127455, trust:8142552, gain:852553, gainPct:0.1169, gainCum:4608431, gainCumPct:0.3555, deposit:12384903, family:400000, accumDep:300000, accumSal:40000, rakutenTrust:5585308, rakutenGain:345309, sbiTrust:2557244, sbiGain:507244 },
-  { date:"2026-02-01", total:19749847, trust:8564944, gain:934944, gainPct:0.1225, gainCum:4664557, gainCumPct:0.3731, deposit:11584903, family:400000, accumDep:300000, accumSal:40000, rakutenTrust:5981435, rakutenGain:401435, sbiTrust:2583509, sbiGain:533509 },
-  { date:"2026-03-01", total:20012455, trust:9127552, gain:1057494, gainPct:0.131, gainCum:4747778, gainCumPct:0.3786, deposit:11284903, family:400000, accumDep:300000, accumSal:40000, rakutenTrust:6404657, rakutenGain:484656, sbiTrust:2722895, sbiGain:572838 },
-  { date:"2026-04-01", total:19780101, trust:9195198, gain:685188, gainPct:0.0805, gainCum:4488689, gainCumPct:0.3568, deposit:10984903, family:400000, accumDep:300000, accumSal:40000, rakutenTrust:6485568, rakutenGain:225567, sbiTrust:2709630, sbiGain:459621 },
-  { date:"2026-05-01", total:20918283, trust:10633380, gain:1583307, gainPct:0.1749, gainCum:5119245, gainCumPct:0.4056, deposit:10684903, family:400000, accumDep:300000, accumSal:40000, rakutenTrust:7456123, rakutenGain:856123, sbiTrust:3177257, sbiGain:727184 },
-  { date:"2026-06-01", total:21410257, trust:10633129, gain:1863606, gainPct:0.2125, gainCum:6299082, gainCumPct:0.4068, deposit:11177128, family:400000, accumDep:300000, accumSal:40000, rakutenTrust:8149702, rakutenGain:1209701, sbiTrust:2483427, sbiGain:653905 },
+  { date:"2023-06-19", total:8214224, trust:10014224, gain:2009888, gainPct:0.2511, deposit:0, family:1800000, accumDep:null, accumSal:null, rakutenTrust:10014224, rakutenGain:2009888, sbiTrust:0, sbiGain:0 },
+  { date:"2023-06-20", total:8367983, trust:4849278, gain:631094, gainPct:0.1496, deposit:5318705, family:1800000, accumDep:null, accumSal:null, rakutenTrust:4849278, rakutenGain:631094, sbiTrust:0, sbiGain:0 },
+  { date:"2023-07-01", total:8547688, trust:5128983, gain:730799, gainPct:0.1662, deposit:5218705, family:1800000, accumDep:100000, accumSal:80000, rakutenTrust:5128983, rakutenGain:730799, sbiTrust:0, sbiGain:0 },
+  { date:"2023-08-01", total:8578530, trust:5259825, gain:681642, gainPct:0.1489, deposit:5118705, family:1800000, accumDep:100000, accumSal:80000, rakutenTrust:5259825, rakutenGain:681642, sbiTrust:0, sbiGain:0 },
+  { date:"2023-09-01", total:8795137, trust:5576432, gain:818249, gainPct:0.172, deposit:5018705, family:1800000, accumDep:100000, accumSal:80000, rakutenTrust:5576432, rakutenGain:818249, sbiTrust:0, sbiGain:0 },
+  { date:"2023-10-01", total:8726928, trust:5608223, gain:670038, gainPct:0.1357, deposit:4918705, family:1800000, accumDep:100000, accumSal:80000, rakutenTrust:5608223, rakutenGain:670038, sbiTrust:0, sbiGain:0 },
+  { date:"2023-11-09", total:8938825, trust:5920120, gain:801936, gainPct:0.1567, deposit:4818705, family:1800000, accumDep:100000, accumSal:80000, rakutenTrust:5920120, rakutenGain:801936, sbiTrust:0, sbiGain:0 },
+  { date:"2023-11-22", total:8808350, trust:2482776, gain:170348, gainPct:0.0737, deposit:9125574, family:2800000, accumDep:null, accumSal:null, rakutenTrust:2482776, rakutenGain:170348, sbiTrust:0, sbiGain:0 },
+  { date:"2023-12-01", total:8669519, trust:2503945, gain:162278, gainPct:0.0693, deposit:8965574, family:2800000, accumDep:160000, accumSal:80000, rakutenTrust:2503945, rakutenGain:162278, sbiTrust:0, sbiGain:0 },
+  { date:"2024-01-01", total:8985962, trust:3021703, gain:200037, gainPct:0.0709, deposit:8764259, family:2800000, accumDep:160000, accumSal:80000, rakutenTrust:3021703, rakutenGain:200037, sbiTrust:0, sbiGain:0 },
+  { date:"2024-02-01", total:9160198, trust:3355939, gain:294273, gainPct:0.0961, deposit:8604259, family:2800000, accumDep:160000, accumSal:30000, rakutenTrust:3305939, rakutenGain:294272, sbiTrust:50000, sbiGain:1 },
+  { date:"2024-03-01", total:9351590, trust:3707331, gain:435664, gainPct:0.1332, deposit:8444259, family:2800000, accumDep:160000, accumSal:30000, rakutenTrust:3707331, rakutenGain:435664, sbiTrust:0, sbiGain:0 },
+  { date:"2024-04-01", total:9680826, trust:4196567, gain:584898, gainPct:0.1619, deposit:8284259, family:2800000, accumDep:160000, accumSal:30000, rakutenTrust:4040032, rakutenGain:578366, sbiTrust:156535, sbiGain:6532 },
+  { date:"2024-05-01", total:9834538, trust:4510279, gain:658610, gainPct:0.171, deposit:8124259, family:2800000, accumDep:160000, accumSal:30000, rakutenTrust:4299269, rakutenGain:647604, sbiTrust:211010, sbiGain:11006 },
+  { date:"2024-06-01", total:9951231, trust:4786972, gain:695304, gainPct:0.1699, deposit:7064259, family:1900000, accumDep:160000, accumSal:30000, rakutenTrust:4523742, rakutenGain:682076, sbiTrust:263230, sbiGain:13228 },
+  { date:"2024-07-01", total:10208218, trust:3223915, gain:495788, gainPct:0.1817, deposit:8884303, family:1900000, accumDep:160000, accumSal:30000, rakutenTrust:2892526, rakutenGain:464407, sbiTrust:331389, sbiGain:31381 },
+  { date:"2024-08-01", total:10160182, trust:2402788, gain:130091, gainPct:0.0572, deposit:8857394, family:1100000, accumDep:160000, accumSal:30000, rakutenTrust:2048491, rakutenGain:125807, sbiTrust:354297, sbiGain:4284 },
+  { date:"2024-09-01", total:9574330, trust:2676936, gain:114246, gainPct:0.0446, deposit:7997394, family:1100000, accumDep:160000, accumSal:30000, rakutenTrust:2224404, rakutenGain:111719, sbiTrust:452532, sbiGain:2527 },
+  { date:"2024-10-01", total:9814321, trust:3076927, gain:224239, gainPct:0.0786, deposit:7737394, family:1000000, accumDep:160000, accumSal:30000, rakutenTrust:2505683, rakutenGain:202998, sbiTrust:571244, sbiGain:21241 },
+  { date:"2024-11-01", total:9938524, trust:3366941, gain:324254, gainPct:0.1066, deposit:7570892, family:1000000, accumDep:160000, accumSal:30000, rakutenTrust:2778691, rakutenGain:286006, sbiTrust:588250, sbiGain:38248 },
+  { date:"2024-12-01", total:10263823, trust:3850011, gain:417299, gainPct:0.1216, deposit:7403812, family:990000, accumDep:160000, accumSal:30000, rakutenTrust:3047486, rakutenGain:364801, sbiTrust:802525, sbiGain:52498 },
+  { date:"2025-01-01", total:10495743, trust:3243123, gain:340432, gainPct:0.1173, deposit:8242620, family:990000, accumDep:160000, accumSal:30000, rakutenTrust:2317738, rakutenGain:265053, sbiTrust:925385, sbiGain:75379 },
+  { date:"2025-02-01", total:10594518, trust:3501898, gain:309188, gainPct:0.0968, deposit:8082620, family:990000, accumDep:160000, accumSal:30000, rakutenTrust:2485461, rakutenGain:242776, sbiTrust:1016437, sbiGain:66412 },
+  { date:"2025-03-01", total:10673316, trust:4540696, gain:57993, gainPct:0.0129, deposit:6922620, family:790000, accumDep:160000, accumSal:30000, rakutenTrust:3475639, rakutenGain:42954, sbiTrust:1065057, sbiGain:15039 },
+  { date:"2025-04-01", total:10180181, trust:4411761, gain:-360934, gainPct:-0.0756, deposit:6558420, family:790000, accumDep:160000, accumSal:30000, rakutenTrust:3366404, rakutenGain:-256281, sbiTrust:1045357, sbiGain:-104653 },
+  { date:"2025-05-01", total:10762569, trust:5154149, gain:91428, gainPct:0.0181, deposit:6398420, family:790000, accumDep:160000, accumSal:30000, rakutenTrust:3899095, rakutenGain:86410, sbiTrust:1255054, sbiGain:5018 },
+  { date:"2025-06-01", total:11027027, trust:5604103, gain:251408, gainPct:0.047, deposit:5822924, family:400000, accumDep:160000, accumSal:30000, rakutenTrust:4210917, rakutenGain:208232, sbiTrust:1393186, sbiGain:43176 },
+  { date:"2025-07-01", total:11283773, trust:6049325, gain:506629, gainPct:0.0914, deposit:5634448, family:400000, accumDep:160000, accumSal:30000, rakutenTrust:4593679, rakutenGain:400993, sbiTrust:1455646, sbiGain:105636 },
+  { date:"2025-08-01", total:11411890, trust:6356517, gain:713794, gainPct:0.1265, deposit:5455373, family:400000, accumDep:160000, accumSal:40000, rakutenTrust:4651674, rakutenGain:558989, sbiTrust:1704843, sbiGain:154805 },
+  { date:"2025-09-01", total:11947884, trust:7052511, gain:909789, gainPct:0.1481, deposit:5295373, family:400000, accumDep:160000, accumSal:40000, rakutenTrust:5296647, rakutenGain:703963, sbiTrust:1755864, sbiGain:205826 },
+  { date:"2025-10-01", total:12379126, trust:7643753, gain:1201016, gainPct:0.1864, deposit:5135373, family:400000, accumDep:160000, accumSal:40000, rakutenTrust:5715051, rakutenGain:922366, sbiTrust:1928702, sbiGain:278650 },
+  { date:"2025-11-01", total:16565344, trust:8985051, gain:922366, gainPct:0.1144, deposit:7980293, family:400000, accumDep:220000, accumSal:40000, rakutenTrust:8985051, rakutenGain:922366, sbiTrust:0, sbiGain:0 },
+  { date:"2025-12-01", total:19620736, trust:7335833, gain:585793, gainPct:0.0868, deposit:12684903, family:400000, accumDep:300000, accumSal:40000, rakutenTrust:5063849, rakutenGain:163849, sbiTrust:2271984, sbiGain:421944 },
+  { date:"2026-01-01", total:20127455, trust:8142552, gain:852553, gainPct:0.1169, deposit:12384903, family:400000, accumDep:300000, accumSal:40000, rakutenTrust:5585308, rakutenGain:345309, sbiTrust:2557244, sbiGain:507244 },
+  { date:"2026-02-01", total:19749847, trust:8564944, gain:934944, gainPct:0.1225, deposit:11584903, family:400000, accumDep:300000, accumSal:40000, rakutenTrust:5981435, rakutenGain:401435, sbiTrust:2583509, sbiGain:533509 },
+  { date:"2026-03-01", total:20012455, trust:9127552, gain:1057494, gainPct:0.131, deposit:11284903, family:400000, accumDep:300000, accumSal:40000, rakutenTrust:6404657, rakutenGain:484656, sbiTrust:2722895, sbiGain:572838 },
+  { date:"2026-04-01", total:19780101, trust:9195198, gain:685188, gainPct:0.0805, deposit:10984903, family:400000, accumDep:300000, accumSal:40000, rakutenTrust:6485568, rakutenGain:225567, sbiTrust:2709630, sbiGain:459621 },
+  { date:"2026-05-01", total:20918283, trust:10633380, gain:1583307, gainPct:0.1749, deposit:10684903, family:400000, accumDep:300000, accumSal:40000, rakutenTrust:7456123, rakutenGain:856123, sbiTrust:3177257, sbiGain:727184 },
+  { date:"2026-06-01", total:21410257, trust:10633129, gain:1863606, gainPct:0.2125, realizedGain:0, realizedGainCum:4435476, deposit:11177128, family:400000, accumDep:300000, accumSal:40000, rakutenTrust:8149702, rakutenGain:1209701, sbiTrust:2483427, sbiGain:653905 },
 ];
 const INITIAL_SAVINGS = [
   { date:"2021-08-10", ribon:1850000, furikae:674516, total:2524516 },
@@ -786,7 +786,8 @@ function buildForecast(months=60) {
     evts.forEach(e=>{ dep += e.addAmount; });
     dep = dep - accumDep - accumSal;
     rows.push({ date:dateStr, total:null, trust:null, gain:null, gainPct:null,
-      gainCum:null, gainCumPct:null, deposit:dep, family:last.family,
+      realizedGain:null, realizedGainCum:last.realizedGainCum!=null?last.realizedGainCum:null,
+      deposit:dep, family:last.family,
       accumDep, accumSal, _forecast:true,
       _events: evts.length ? evts.map(e=>e.memo).join(', ') : null });
     if (dep <= 0) break;
@@ -927,7 +928,10 @@ function renderTrust(){
       <td class="num ${r.gain==null?'':r.gain>=0?'pos':'neg'}">${r.gain!=null?`<div style="display:flex;align-items:center;gap:4px;justify-content:flex-end"><span>${r.gain>=0?'+':''}${yen(r.gain)}</span><div style="height:4px;width:${barW}px;border-radius:2px;background:${(r.gain||0)>=0?'var(--green)':'var(--red)'}"></div></div>`:'—'}</td>
       <td class="num ${r.gainPct==null?'':r.gainPct>=0?'pos':'neg'}">${r.gainPct!=null?pct(r.gainPct):'—'}</td>
       <td class="num" style="color:var(--gold)">${r.realizedGain?'+'+yen(r.realizedGain):'—'}</td>
-      <td class="num" style="color:var(--gold-lt);font-weight:600">${r.gainCum!=null?yen(r.gainCum):'—'}</td>
+      <td class="num" style="color:var(--gold-lt);font-weight:600">
+        ${r.realizedGainCum!=null?yen(r.realizedGainCum):'—'}
+        ${r.realizedGainCum!=null&&r.gain!=null?`<div style="font-size:9px;color:var(--muted);font-weight:400">評価込み ${yen(r.realizedGainCum+r.gain)}</div>`:''}
+      </td>
       <td class="num ${r.deposit<0?'neg':''}">${yen(r.deposit)}</td>
       <td class="num" style="color:var(--muted)">${yen(r.family)}</td>
       <td class="num" style="color:var(--blue)">${yen(r.accumDep)}</td>
@@ -956,13 +960,14 @@ function calcTrustTotal(){
   document.getElementById('tin-gain-preview').className='';
   document.getElementById('tin-gain-preview').style.color=gain>=0?'var(--green)':'var(--red)';
   document.getElementById('tin-asset-preview').textContent=trust&&dep?yen(total):'—';
-  // 累積利益確定額プレビュー
+  // 累積利益確定額プレビュー（確定額のみの積算。評価損益は含めない）
   const sortedActual=[...trustData].filter(isActual).sort((a,b)=>a.date.localeCompare(b.date));
   const prevRow=sortedActual[sortedActual.length-1];
-  const prevCum=prevRow&&prevRow.gainCum!=null?prevRow.gainCum:0;
-  const newCum=prevCum+gain+realized;
+  const prevRealizedCum=prevRow&&prevRow.realizedGainCum!=null?prevRow.realizedGainCum:0;
+  const newRealizedCum=prevRealizedCum+realized;
+  const withUnrealized=newRealizedCum+gain;
   const cumEl=document.getElementById('tin-gainCum-preview');
-  cumEl.textContent = (gain||realized) ? yen(newCum) : (prevCum?yen(prevCum)+'（変化なし）':'—');
+  cumEl.innerHTML = `累積確定額：<b>${yen(newRealizedCum)}</b>　／　評価損益込み：<span style="color:var(--muted)">${yen(withUnrealized)}</span>`;
 }
 
 async function addTrustRow(){
@@ -971,21 +976,25 @@ async function addTrustRow(){
   const st=nv('tin-sbi-trust'),     sg=nv('tin-sbi-gain');
   const dep=nv('tin-deposit'), fam=nv('tin-family');
   const accumDep=nv('tin-accumDep'), accumSal=nv('tin-accumSal');
-  const realizedGain=nv('tin-realizedGain');
+  const realizedGain=nv('tin-realizedGain')||0;
   if(!d||rt===null||dep===null){ alert('日付・楽天評価額・預かり金は必須'); return; }
   const tr   = (rt||0)+(st||0);
   const gain = (rg||0)+(sg||0);
   const tot  = tr + (dep||0) - (fam||0);
-  // 累積利益確定額 = 前月の累積 ＋ 今月の評価損益 ＋ 今月の利益確定額（手動）
-  const sorted = [...trustData].filter(isActual).sort((a,b)=>a.date.localeCompare(b.date));
-  const prevRow = sorted[sorted.length-1];
-  const prevCum = prevRow && prevRow.gainCum != null ? prevRow.gainCum : 0;
-  const gainCum = prevCum + gain + (realizedGain||0);
+  // 既存に同日があれば置き換え対象として前月を探す（同日除外）
+  const sorted = [...trustData].filter(r=>isActual(r)&&r.date!==d).sort((a,b)=>a.date.localeCompare(b.date));
+  const prevRow = sorted.filter(r=>r.date<d).slice(-1)[0];
+  const prevRealizedCum = prevRow && prevRow.realizedGainCum != null ? prevRow.realizedGainCum : 0;
+  // 累積利益確定額 = 前月までの確定累積 ＋ 今月の利益確定額（手動入力のみ。評価損益は含めない）
+  const realizedGainCum = prevRealizedCum + realizedGain;
   const gainPct = tr&&gain!=null&&(tr-gain)>0 ? gain/(tr-gain) : null;
-  const row={date:d, total:tot, trust:tr, gain, gainPct, gainCum, gainCumPct:null,
+  const row={date:d, total:tot, trust:tr, gain, gainPct,
+    realizedGain, realizedGainCum,
     deposit:dep, family:fam, accumDep, accumSal,
-    rakutenTrust:rt, rakutenGain:rg, sbiTrust:st, sbiGain:sg, realizedGain:realizedGain||0};
+    rakutenTrust:rt, rakutenGain:rg, sbiTrust:st, sbiGain:sg};
   const id=await window._db.addOne('trustData',row,d);
+  // 既存の同日データがあれば削除してから追加（上書き）
+  trustData = trustData.filter(r=>r.date!==d);
   trustData.push({...row,_id:id});
   trustData.sort((a,b)=>a.date.localeCompare(b.date));
   clearTrust(); renderTrust(); renderSummaryIfActive(); showAlert('trustAlert');
