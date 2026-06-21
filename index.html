@@ -291,7 +291,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
   <div class="logo">
     <div class="logo-mark">¥</div>
     <span class="logo-text">資産管理ダッシュボード</span>
-    <span style="font-size:10px;color:var(--muted);background:var(--card);border:1px solid var(--border);padding:2px 8px;border-radius:10px;font-family:var(--mono)">v1.1.0</span>
+    <span style="font-size:10px;color:var(--muted);background:var(--card);border:1px solid var(--border);padding:2px 8px;border-radius:10px;font-family:var(--mono)">v1.1.1</span>
   </div>
   <div style="display:flex;align-items:center;gap:14px">
     <span style="font-size:11px;color:var(--muted)" id="userEmail"></span>
@@ -367,7 +367,11 @@ tr:hover td{background:rgba(255,255,255,.02)}
           <input type="number" id="tin-deposit" placeholder="空欄なら自動計算（前月−今月の積立額）" oninput="calcTrustTotal()">
           <span id="tin-deposit-preview" style="font-size:10px;color:var(--gold-lt)"></span>
         </div>
-        <div class="fg"><label>実家分</label><input type="number" id="tin-family" placeholder="400000" oninput="calcTrustTotal()"></div>
+        <div class="fg">
+          <label>実家分（任意・省略時は前回値を継承）</label>
+          <input type="number" id="tin-family" placeholder="空欄なら前回値を使用" oninput="calcTrustTotal()">
+          <span id="tin-family-preview" style="font-size:10px;color:var(--gold-lt)"></span>
+        </div>
         <div class="fg">
           <label>💰 今月の利益確定額（手動）</label>
           <input type="number" id="tin-realizedGain" placeholder="例: 790000（解約していなければ空欄）" oninput="calcTrustTotal()">
@@ -957,19 +961,26 @@ function calcTrustTotal(){
   const rg=+document.getElementById('tin-rakuten-gain').value||0;
   const sg=+document.getElementById('tin-sbi-gain').value||0;
   const depInput=document.getElementById('tin-deposit').value.trim();
-  const fam=+document.getElementById('tin-family').value||0;
+  const famInput=document.getElementById('tin-family').value.trim();
   const realized=+document.getElementById('tin-realizedGain').value||0;
   const trust=rt+st, gain=rg+sg;
   const yen=v=>v?'¥'+v.toLocaleString():'—';
 
-  // 預かり金プレビュー：手動入力があればそれを使用、なければ自動計算
   const d = v('tin-date');
+  const actualSorted=[...trustData].filter(isActual).sort((a,b)=>a.date.localeCompare(b.date));
+  const prevRow = d ? actualSorted.filter(r=>r.date<d).slice(-1)[0] : actualSorted[actualSorted.length-1];
+
+  // 預かり金プレビュー：手動入力があればそれを使用、なければ自動計算
   let dep;
   if (depInput !== '') {
     dep = +depInput;
   } else {
     dep = computeAutoDeposit(d);
   }
+
+  // 実家分プレビュー：手動入力があればそれを使用、なければ前回値を継承
+  const fam = famInput !== '' ? +famInput : (prevRow ? (prevRow.family||0) : 0);
+
   const total = trust + (dep||0) - fam;
 
   document.getElementById('tin-total-preview').textContent=trust?yen(trust):'—';
@@ -993,6 +1004,13 @@ function calcTrustTotal(){
     depEl.textContent = depInput!==''
       ? `手動入力値を使用：${yen(dep)}`
       : (d ? `自動計算：${yen(dep)}（前月の積立額を減算）` : '日付を入力すると自動計算されます');
+  }
+  // 実家分プレビューも表示
+  const famEl = document.getElementById('tin-family-preview');
+  if (famEl) {
+    famEl.textContent = famInput!==''
+      ? `入力値を使用：${yen(fam)}`
+      : `前回値を継承：${yen(fam)}`;
   }
 }
 
@@ -1023,7 +1041,7 @@ async function addTrustRow(){
   const d=v('tin-date');
   const rt=nv('tin-rakuten-trust'), rg=nv('tin-rakuten-gain');
   const st=nv('tin-sbi-trust'),     sg=nv('tin-sbi-gain');
-  const depManual=nv('tin-deposit'), fam=nv('tin-family');
+  const depManual=nv('tin-deposit'), famManual=nv('tin-family');
   const realizedGain=nv('tin-realizedGain')||0;
   if(!d||rt===null){ alert('日付・楽天評価額は必須'); return; }
   const tr   = (rt||0)+(st||0);
@@ -1035,6 +1053,9 @@ async function addTrustRow(){
   const prevRealizedCum = prevRow && prevRow.realizedGainCum != null ? prevRow.realizedGainCum : 0;
   const realizedGainCum = prevRealizedCum + realizedGain;
   const gainPct = tr&&gain!=null&&(tr-gain)>0 ? gain/(tr-gain) : null;
+
+  // 実家分：手動入力があれば優先、なければ前回値を継承
+  const fam = famManual !== null ? famManual : (prevRow ? (prevRow.family||0) : 0);
 
   // 預かり金：手動入力があれば優先、なければ自動計算（同月内の積立減算は1回のみ）
   let dep, accumDep, accumSal;
