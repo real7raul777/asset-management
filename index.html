@@ -10,7 +10,7 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
   import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
     from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-  import { getFirestore, doc, getDoc, setDoc, collection, getDocs, addDoc, deleteDoc, updateDoc, writeBatch }
+  import { getFirestore, doc, getDoc, getDocFromServer, setDoc, collection, getDocs, getDocsFromServer, addDoc, deleteDoc, updateDoc, writeBatch }
     from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
   // ============================================================
@@ -101,6 +101,58 @@
   };
   window._fbLogout = async () => {
     await signOut(auth);
+  };
+
+  // Firestoreに存在する本人のデータのみ取得（公開ソースに金融データを含めない）。
+  // サーバーから取得し、オフラインキャッシュをバックアップと誤認しない。
+  window._exportAssetBackup = async () => {
+    if (!currentUser) {
+      alert('Googleログイン後にバックアップしてください。');
+      return;
+    }
+    const btn = document.getElementById('assetBackupBtn');
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = '取得中...';
+    }
+    try {
+      const uid = currentUser.uid;
+      const names = ['trustData', 'savingsData', 'ribonData', 'otherAssets', 'otherAssetsHistory'];
+      const [snapshots, settingsSnap] = await Promise.all([
+        Promise.all(names.map(name => getDocsFromServer(userCol(uid, name)))),
+        getDocFromServer(doc(db, 'assetManagement', uid, 'meta', 'settings'))
+      ]);
+      const collections = {};
+      names.forEach((name, i) => {
+        collections[name] = snapshots[i].docs.map(d => ({ id: d.id, data: d.data() }));
+      });
+      const payload = {
+        format: 'asset-management-firestore-backup-v1',
+        exportedAt: new Date().toISOString(),
+        projectId: 'kakeibo-app-19171',
+        userId: uid,
+        collections,
+        settings: settingsSnap.exists() ? { id: settingsSnap.id, data: settingsSnap.data() } : null
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'asset-management-backup-' + new Date().toISOString().slice(0, 10) + '.json';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 30000);
+      alert('バックアップのダウンロードを開始しました。保存されたファイルを確認してください。');
+    } catch (err) {
+      console.error('Asset backup failed', err);
+      alert('バックアップに失敗しました。通信状態とGoogleログインを確認してください。');
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = '📦 データのバックアップ（JSON）';
+      }
+    }
   };
 
   // アプリ側に公開するDB操作
@@ -305,6 +357,9 @@ tr:hover td{background:rgba(255,255,255,.02)}
   <button class="nav-btn" onclick="nav('ribon',this)">📋 定期預金（りぼん）</button>
   <button class="nav-btn" onclick="nav('other',this)">💴 その他金融資産</button>
 </nav>
+<div style="display:flex;justify-content:flex-end;padding:10px 20px 0">
+  <button id="assetBackupBtn" onclick="_exportAssetBackup()" style="padding:7px 12px;border:1px solid var(--border);background:var(--card);color:var(--text);border-radius:6px;font-size:12px;cursor:pointer">📦 データのバックアップ（JSON）</button>
+</div>
 
 <main>
 
